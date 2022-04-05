@@ -214,3 +214,8 @@ cython_debug/
 *.jar
 *.zip
 *.pkl
+
+apex/
+dataset/
+tree-sitter/
+codegen_sources/model/tools/fastBPE/
