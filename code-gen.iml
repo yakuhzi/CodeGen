@@ -2,7 +2,7 @@
 <module type="WEB_MODULE" version="4">
   <component name="FacetManager">
     <facet type="Python" name="Python">
-      <configuration sdkName="Python 3.7 (cv-project)" />
+      <configuration sdkName="Python 3.6 (code-gen)" />
     </facet>
   </component>
   <component name="NewModuleRootManager" inherit-compiler-output="true">
@@ -10,6 +10,6 @@
     <content url="file://$MODULE_DIR$" />
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="Python 3.7 (cv-project) interpreter library" level="application" />
+    <orderEntry type="library" name="Python 3.6 (code-gen) interpreter library" level="application" />
   </component>
 </module>
