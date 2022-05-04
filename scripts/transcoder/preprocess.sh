@@ -1,32 +1,19 @@
 #!/bin/bash
+#SBATCH --ntasks=10
+#SBATCH --time=12:00:00
+#SBATCH --mem=200GB
+#SBATCH --gres=gpu:0
+#SBATCH --job-name=preprocess
+#SBATCH --output=transcoder_preprocess_%j.out
 
-DATASET_PATH='dataset/CPP'
-TEMP_DIR="${DATASET_PATH}/temp"
+DATASET_PATH=$(ws_find code-gen)/dataset/all
 MODE='monolingual_functions'
 NGPU=1
 
-for FILE in "$DATASET_PATH"/*.gz
-do
-  mkdir "$TEMP_DIR"
-  cp "$FILE" "$TEMP_DIR"
-
-  python -m codegen_sources.preprocessing.preprocess \
-      --langs cpp java python \
-      --mode="$MODE" \
-      --local=True \
-      --bpe_mode=fast \
-      --train_splits="$NGPU" \
-      "$TEMP_DIR"
-
-  for OUT_FILE in "$TEMP_DIR"/*.tok
-  do
-    zip "$OUT_FILE".zip "$OUT_FILE"
-  done
-
-  for ZIP_FILE in "$TEMP_DIR"/*.zip
-  do
-    mv "$ZIP_FILE" "$DATASET_PATH"
-  done
-
-  rm -r "$TEMP_DIR"
-done
+python -m codegen_sources.preprocessing.preprocess \
+    --langs cpp java python \
+    --mode="$MODE" \
+    --local=True \
+    --bpe_mode=fast \
+    --train_splits="$NGPU" \
+    "$DATASET_PATH"

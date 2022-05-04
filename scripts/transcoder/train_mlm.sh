@@ -1,19 +1,23 @@
-python codegen_sources/model/train.py 
+#!/bin/bash
+#SBATCH --ntasks=10
+#SBATCH --time=1:00:00
+#SBATCH --mem=100GB
+#SBATCH --gres=gpu:1
+#SBATCH --job-name=train_mlm
+#SBATCH --output=transcoder_train_mlm_%j.out
 
-## main parameters
+DUMP_PATH='dump/transcoder/train_mlm'
+DATASET_PATH=$(ws_find code-gen)/dataset/test/XLM-syml
+
+python codegen_sources/model/train.py \
 --exp_name mlm \
---dump_path '<YOUR_DUMP_PATH>' \ 
-
-## data / objectives
---data_path '<DATA_PATH>' \ 
+--dump_path "$DUMP_PATH" \
+--data_path "$DATASET_PATH" \
 --split_data_accross_gpu local \
 --mlm_steps 'cpp,java,python' \
 --add_eof_to_stream true \
 --word_mask_keep_rand '0.8,0.1,0.1' \
 --word_pred '0.15' \
-
-
-## model
 --encoder_only true \
 --n_layers 6  \
 --emb_dim 1024  \
@@ -22,8 +26,6 @@ python codegen_sources/model/train.py
 --max_vocab 64000 \
 --gelu_activation false \
 --roberta_mode false \
-
-#optimization
 --amp 2  \
 --fp16 true  \
 --batch_size 32 \

@@ -214,8 +214,11 @@ cython_debug/
 *.jar
 *.zip
 *.pkl
+*.pth.*
 
+dump/
 apex/
 dataset/
 tree-sitter/
 codegen_sources/model/tools/fastBPE/
+javafx-sdk-11/

@@ -143,7 +143,7 @@ class Trainer(object):
                 "python": PythonTestRunner(timeout=params.st_test_timeout),
                 "cpp": CppTestRunner(timeout=params.st_test_timeout),
             }
-            self.unit_tests = data[f"java_st_unit_tests"]
+            #self.unit_tests = data[f"java_st_unit_tests"]
 
         # probability of masking out / randomize / not modify words to predict
         params.pred_probs = torch.FloatTensor(

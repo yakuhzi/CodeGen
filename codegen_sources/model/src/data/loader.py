@@ -330,6 +330,8 @@ def load_para_data(params, data):
                 a = n_sent * params.local_rank
                 b = n_sent * params.local_rank + n_sent
                 dataset.select_data(a, b)
+            else:
+                dataset.select_data(0, 5)
             if span is None:
                 data["para"][(src, tgt)][splt] = dataset
             else:
@@ -493,7 +495,7 @@ def check_data_params(params):
         logger.info(f"st source langs: {params.st_src_langs}")
         logger.info(f"st target langs: {params.st_tgt_langs}")
         # unit tests path
-        assert os.path.isfile(params.unit_tests_path), params.unit_tests_path
+        # assert os.path.isfile(params.unit_tests_path), params.unit_tests_path
 
     # check monolingual datasets
     required_mono = set(
@@ -504,6 +506,7 @@ def check_data_params(params):
     params.mono_dataset = {
         lang: {
             splt: os.path.join(params.data_path, "%s.%s.pth" % (splt, lang))
+            # splt: os.path.join(params.data_path, "%s.%s_monolingual.pth" % (splt, lang))
             for splt in DATASET_SPLITS
         }
         for lang in params.langs
@@ -514,10 +517,11 @@ def check_data_params(params):
             params.mono_dataset[lang] = dict()
         params.mono_dataset[lang][SELF_TRAINED] = os.path.join(
             params.data_path, "%s.%s.pth" % (SELF_TRAINED, lang)
+            #params.data_path, "%s.%s_monolingual.pth" % (SELF_TRAINED, lang)
         )
     for paths in params.mono_dataset.values():
         for p in paths.values():
-            if not os.path.isfile(p):
+            if not os.path.isfile(p) or os.path.isfile(p.replace("pth", "0.pth")):
                 logger.error(f"{p} not found")
 
     if not params.eval_only:
@@ -678,20 +682,23 @@ def load_data(params):
     data = {}
 
     # monolingual datasets
-    load_mono_data(params, data)
+    if len(params.mlm_steps) > 0:
+        load_mono_data(params, data)
 
     # parallel datasets
     load_para_data(params, data)
+    
+    logger.info("============ Data summary")
 
     # monolingual data summary
-    logger.info("============ Data summary")
-    for lang, v in data["mono_stream"].items():
-        for data_set in v.keys():
-            logger.info(
-                "{: <18} - {: >5} - {: >12}:{: >10}".format(
-                    "Monolingual data", data_set, lang, len(v[data_set])
+    if len(params.mlm_steps) > 0:
+        for lang, v in data["mono_stream"].items():
+            for data_set in v.keys():
+                logger.info(
+                    "{: <18} - {: >5} - {: >12}:{: >10}".format(
+                        "Monolingual data", data_set, lang, len(v[data_set])
+                    )
                 )
-            )
 
     # parallel data summary
     for key, v in data["para"].items():

@@ -1140,7 +1140,7 @@ import javafx.util.Pair;
 
 
 def get_java_bin_path():
-    JAVA_HOME = "/public/apps/java/jdk/1.8.0_131/bin/"
+    JAVA_HOME = "/usr/lib/jvm/java-11/bin"
     if Path(JAVA_HOME).is_dir():
         return JAVA_HOME
     else:

@@ -94,7 +94,7 @@ def run_java_program(script_path, i):
     folder = os.path.dirname(script_path)
     name = os.path.basename(script_path).split(".")[0]
     proc = subprocess.Popen(
-        f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; cd {folder} &&  {os.path.join(get_java_bin_path(), 'javac')} {name}.java && {os.path.join(get_java_bin_path(), 'java')} {name}",
+        f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; cd {folder} &&  {os.path.join(get_java_bin_path(), 'javac')} --module-path /home/hd/hd_hd/hd_tf268/code-gen/javafx-sdk-11/lib --add-modules javafx.base {name}.java && {os.path.join(get_java_bin_path(), 'java')} --module-path /home/hd/hd_hd/hd_tf268/code-gen/javafx-sdk-11/lib --add-modules javafx.base {name}",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=True,
@@ -125,6 +125,25 @@ def make_arg_string(argtype, argval):
     dim = argtype.count("[")
     argtype = argtype.replace("[", "").replace("]", "")
     return f'{argtype} {argval} {"[ ]" * dim}'
+
+
+def fix_code(script_model, f_fill, lang, lang_processor, f_name=None):
+    print("script_model", script_model)
+
+    f_fill = lang_processor.detokenize_code(f_fill)
+    print("f_fill", f_fill)
+
+    f_fill = f_fill.replace(f_name, "f_filled")
+    f_fill = f_fill.replace("/", "//")
+    print("f_fill_replaced", f_fill)
+
+    ret = script_model.replace(
+        TOFILL[lang], 
+        "\n".join([f_fill, "\n"])
+    )
+    
+    print("ret", ret)
+    return ret
 
 
 def convert_filled_arguments(script_model, f, lang, lang_processor, f_name=None):
@@ -314,6 +333,35 @@ def submit_functions(
                                 [
                                     result[1] if result[1] else "",
                                     f"|| second run handling types mismatch: ## function ## {script_transform_args} ## output ## {result2[1]}",
+                                ]
+                            ),
+                        )
+            else:
+                try:
+                    script_transform_args = fix_code(
+                        script_model, f_fill, lang, lang_processor, f_name=f_name
+                    )
+                except KeyboardInterrupt:
+                    raise
+                except:
+                    script_transform_args = None
+
+                if script_transform_args is not None:
+                    open(script_path, "w", encoding="utf-8").write(
+                        script_transform_args
+                    )
+                    run_pg = globals()[f"run_{lang}_program"]
+                    result2, _ = run_pg(script_path, i)
+                    if result2[0] == "success":
+                        results_list.append(result2)
+                        return results_list, i
+                    else:
+                        result = (
+                            result2[0],
+                            "".join(
+                                [
+                                    result[1] if result[1] else "",
+                                    f"|| fixed run: ## function ## {script_transform_args} ## output ## {result2[1]}",
                                 ]
                             ),
                         )

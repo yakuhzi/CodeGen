@@ -1,6 +1,14 @@
-JAVA_FUNC_DATASET='dataset/'
+#!/bin/bash
+#SBATCH --ntasks=10
+#SBATCH --time=1:30:00
+#SBATCH --mem=80GB
+#SBATCH --gres=gpu:1
+#SBATCH --job-name=transcoder_st_create_dataset
+#SBATCH --output=transcoder_st_create_dataset_%j.out
+
+JAVA_FUNC_DATASET=$(ws_find code-gen)/dataset/java
 MODELS_PATH='models/transcoder_st'
-OUTPUT_DIRECTORY='output/transcoder_st'
+OUTPUT_DIRECTORY='dump/transcoder_st/dataset'
 
 # Create data (it will take a while)
 bash codegen_sources/test_generation/create_self_training_dataset.sh $JAVA_FUNC_DATASET $MODELS_PATH $OUTPUT_DIRECTORY
