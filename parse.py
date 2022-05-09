@@ -1,6 +1,8 @@
 import os
+import sys
 import torch
 from tree_sitter import Language, Parser, TreeCursor
+from codegen_sources.model.translate import Translator
 
 
 DATASET_PATH = 'dataset/transcoder/test'
@@ -19,17 +21,30 @@ def parse_java(code: str, cursor: TreeCursor):
     print("========================================")
     
     assert cursor.goto_first_child()
-    print(code[cursor.node.start_byte: cursor.node.end_byte])
+    #print(code[cursor.node.start_byte: cursor.node.end_byte])
     assert cursor.goto_next_sibling()
-    print(code[cursor.node.start_byte: cursor.node.end_byte])
+    #print(code[cursor.node.start_byte: cursor.node.end_byte])
     assert cursor.goto_next_sibling()
-    print(code[cursor.node.start_byte: cursor.node.end_byte])
+    #print(code[cursor.node.start_byte: cursor.node.end_byte])
     assert cursor.goto_first_child()
-    print(code[cursor.node.start_byte: cursor.node.end_byte])
+    #print(code[cursor.node.start_byte: cursor.node.end_byte])
 
     while cursor.goto_next_sibling():
-        pass
-        print(code[cursor.node.start_byte: cursor.node.end_byte])
+        if sys.getsizeof(code) - cursor.node.end_byte != 34:
+            input = code[cursor.node.start_byte: cursor.node.end_byte].decode("utf-8")
+            print("INPUT", input)
+            input = f"public static int a() {{\n    {input}\n}}"
+
+            with torch.no_grad():
+                output = translator.translate(
+                    input,
+                    lang1='java',
+                    lang2='python',
+                    beam_size=1,
+                )
+
+                output = '\n'.join(output[0].split("\n")[1:-2])
+                print("OUTPUT", output)
 
 
 def parse_python(code: str, cursor: TreeCursor):
@@ -67,6 +82,9 @@ if __name__ == "__main__":
             'tree-sitter/tree-sitter-python'
         ]
     )
+
+    # Initialize translator
+    translator = Translator('models/transcoder_st/Online_ST_Java_Python.pth', 'data/bpe/cpp-java-python/codes')
 
     for subdir, dirs, files in os.walk(DATASET_PATH):
         for file in files:
