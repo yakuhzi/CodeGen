@@ -11,6 +11,7 @@ from concurrent.futures import ProcessPoolExecutor
 import sys
 
 import os
+from ....scripts.corrections.fix_code import fix_code
 
 from ..utils import (
     REPO_ROOT,
@@ -55,7 +56,7 @@ EVOSUITE_TESTS_TRANSCODER_PATH = (
 def eval_state(proc, proc_name):
     try:
         try:
-            result, stderr = proc.communicate(timeout=120)
+            result, stderr = proc.communicate(timeout=10)
         except subprocess.TimeoutExpired:
             c = (
                 "kill `ps aux | grep '"
@@ -125,25 +126,6 @@ def make_arg_string(argtype, argval):
     dim = argtype.count("[")
     argtype = argtype.replace("[", "").replace("]", "")
     return f'{argtype} {argval} {"[ ]" * dim}'
-
-
-def fix_code(script_model, f_fill, lang, lang_processor, f_name=None):
-    print("script_model", script_model)
-
-    f_fill = lang_processor.detokenize_code(f_fill)
-    print("f_fill", f_fill)
-
-    f_fill = f_fill.replace(f_name, "f_filled")
-    f_fill = f_fill.replace("/", "//")
-    print("f_fill_replaced", f_fill)
-
-    ret = script_model.replace(
-        TOFILL[lang], 
-        "\n".join([f_fill, "\n"])
-    )
-    
-    print("ret", ret)
-    return ret
 
 
 def convert_filled_arguments(script_model, f, lang, lang_processor, f_name=None):
