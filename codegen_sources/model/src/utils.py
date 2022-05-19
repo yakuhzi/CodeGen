@@ -10,16 +10,17 @@ import getpass
 import math
 import os
 import pickle
+import py_compile
 import random
 import re
 import subprocess
 import sys
 from pathlib import Path, PosixPath
 
-import psutil
-
 import numpy as np
+import psutil
 import torch
+from pylint import epylint as lint
 from transformers.models.gpt2.tokenization_gpt2 import bytes_to_unicode
 
 from .data.dictionary import NUM_SPECIAL_TOKENS
@@ -31,10 +32,11 @@ TREE_SITTER_ROOT = Path(__file__).parents[3].joinpath("tree-sitter")
 import codegen_sources.preprocessing.lang_processors.cpp_processor
 import codegen_sources.preprocessing.lang_processors.java_processor
 import codegen_sources.preprocessing.lang_processors.python_processor
-from codegen_sources.test_generation.test_runners.evosuite_test_runners import (
-    SUPPORTED_LANGUAGES_FOR_TESTS,
-)
-from codegen_sources.preprocessing.lang_processors.lang_processor import LangProcessor
+from codegen_sources.preprocessing.lang_processors.lang_processor import \
+    LangProcessor
+from codegen_sources.test_generation.test_runners.evosuite_test_runners import \
+    SUPPORTED_LANGUAGES_FOR_TESTS
+
 from .logger import create_logger
 
 FALSY_STRINGS = {"off", "false", "0"}
@@ -1088,7 +1090,7 @@ def get_programming_language_name(lang):
 
 def get_java_compilation_errors(code, timeout=20):
     file = write_java_function(code)
-    comp_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; {os.path.join(get_java_bin_path(), 'javac')} {file}"
+    comp_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; {os.path.join(get_java_bin_path(), 'javac --module-path /home/hd/hd_hd/hd_tf268/code-gen/javafx-sdk-11/lib --add-modules javafx.base')} {file}"
     timed_out = False
     try:
         proc = subprocess.run(
@@ -1115,6 +1117,53 @@ def get_java_compilation_errors(code, timeout=20):
     return "success" if proc.returncode == 0 else proc.stderr.decode()
 
 
+def get_cpp_compilation_errors(code, timeout=20):
+    file = write_cpp_function(code)
+    comp_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; g++ {file} -o {file}_cpp"
+    timed_out = False
+    try:
+        proc = subprocess.run(
+            comp_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=True,
+            executable="/bin/bash",
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return "timeout"
+    file.unlink()
+    assert "tmp_folder" in str(file.parent), file.parent
+    for compiled_f in file.parent.glob("*"):
+        compiled_f.unlink()
+    file.parent.rmdir()
+    if timed_out:
+        return "timeout"
+    return "success" if proc.returncode == 0 else proc.stderr.decode()
+
+
+def get_python_compilation_errors(code):
+    file = write_python_function(code)
+
+    try:
+        py_compile.compile(file, doraise=True)
+    except py_compile.PyCompileError as e:
+        return e.exc_value
+
+    return "success"
+
+
+def get_python_linting_errors(code):
+    file = write_python_function(code)
+
+    pylint_stdout, _ = lint.py_run(
+        f"{file} --disable=R,C,unused-import,wildcard-import,unused-wildcard-import", 
+        return_std=True
+    )
+
+    return pylint_stdout.getvalue()
+
+
 def write_java_function(f: str, out_path: PosixPath = Path("/tmp/java_functions/")):
     rand_folder = str(random.getrandbits(64))
     classname = f"JAVA_FUNC"
@@ -1136,6 +1185,59 @@ import javafx.util.Pair;
         code = f.replace("\r", "")
         writefile.write(java_processor.detokenize_code(code))
         writefile.write("}\n")
+    return out_file
+
+
+def write_cpp_function(f: str, out_path: PosixPath = Path("/tmp/cpp_functions/")):
+    rand_folder = str(random.getrandbits(64))
+    classname = f"CPP_FUNC"
+    tmp_folder = out_path.joinpath(f"tmp_folder_{rand_folder}")
+    out_file = tmp_folder.joinpath(classname + ".cpp")
+    tmp_folder.mkdir(parents=True, exist_ok=True)
+    cpp_processor = LangProcessor.processors["cpp"](root_folder=TREE_SITTER_ROOT)
+
+    with open(out_file, "w") as writefile:
+        writefile.write(
+            """
+#include <iostream>
+#include <cstdlib>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <iomanip>
+#include <bits/stdc++.h>
+using namespace std;
+"""
+        )
+        code = f.replace("\r", "")
+        writefile.write(cpp_processor.detokenize_code(code))
+    return out_file
+
+
+def write_python_function(f: str, out_path: PosixPath = Path("/tmp/python_functions/")):
+    rand_folder = str(random.getrandbits(64))
+    classname = f"PYTHON_FUNC"
+    tmp_folder = out_path.joinpath(f"tmp_folder_{rand_folder}")
+    out_file = tmp_folder.joinpath(classname + ".py")
+    tmp_folder.mkdir(parents=True, exist_ok=True)
+    python_processor = LangProcessor.processors["python"](root_folder=TREE_SITTER_ROOT)
+
+    with open(out_file, "w") as writefile:
+        writefile.write(
+            """
+import numpy as np 
+import math
+from math import *
+import collections
+from collections import *
+import heapq
+import itertools
+import random
+import sys
+"""
+        )
+        code = f.replace("\r", "")
+        writefile.write(python_processor.detokenize_code(code))
     return out_file
 
 

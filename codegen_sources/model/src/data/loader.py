@@ -330,8 +330,8 @@ def load_para_data(params, data):
                 a = n_sent * params.local_rank
                 b = n_sent * params.local_rank + n_sent
                 dataset.select_data(a, b)
-            else:
-                dataset.select_data(0, 5)
+            # else:
+            #     dataset.select_data(0, 5)
             if span is None:
                 data["para"][(src, tgt)][splt] = dataset
             else:

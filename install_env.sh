@@ -32,3 +32,4 @@ cd ..
 pip install sacrebleu=="1.2.11" javalang tree_sitter psutil fastBPE
 pip install hydra-core --upgrade --pre
 pip install black==19.10b0
+pip install pylint

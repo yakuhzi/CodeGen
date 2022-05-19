@@ -9,13 +9,13 @@ import argparse
 import json
 import random
 
-from src.data.loader import check_data_params, load_data
-from src.evaluation.evaluator import SingleEvaluator, EncDecEvaluator
-from src.model import check_model_params, build_model, build_classifier
-from src.slurm import init_signal_handler, init_distributed_mode
-from src.trainer import SingleTrainer, EncDecTrainer
-from src.utils import bool_flag, initialize_exp, set_sampling_probs, shuf_order
-from src.utils import print_memory
+from .src.data.loader import check_data_params, load_data
+from .src.evaluation.evaluator import SingleEvaluator, EncDecEvaluator
+from .src.model import check_model_params, build_model, build_classifier
+from .src.slurm import init_signal_handler, init_distributed_mode
+from .src.trainer import SingleTrainer, EncDecTrainer
+from .src.utils import bool_flag, initialize_exp, set_sampling_probs, shuf_order
+from .src.utils import print_memory
 
 
 def get_parser():
