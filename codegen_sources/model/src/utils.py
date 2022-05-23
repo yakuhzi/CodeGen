@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path, PosixPath
+from typing import Tuple
 
 import numpy as np
 import psutil
@@ -1086,6 +1087,20 @@ def get_programming_language_name(lang):
             f"The language {lang} is not supported for unit tests self-training. "
             f"The supported languages are {SUPPORTED_LANGUAGES_FOR_TESTS}"
         )
+
+
+def get_errors(function: str, tgt_language: str) -> Tuple[str, str]:
+    if tgt_language == "cpp":
+        compile_errors = get_cpp_compilation_errors(function)
+        return compile_errors, None
+    elif tgt_language == "java":
+        compile_errors = get_java_compilation_errors(function)
+        linting_errors = None
+        return compile_errors, linting_errors
+    elif tgt_language == "python":
+        compile_errors = get_python_compilation_errors(function)
+        # linting_errors = get_python_linting_errors(function)
+        return compile_errors, None
 
 
 def get_java_compilation_errors(code, timeout=20):

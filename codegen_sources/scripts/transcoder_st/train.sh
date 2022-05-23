@@ -13,7 +13,7 @@ DUMP_PATH='dump/transcoder_st'
 ONLINE_ST_FILES=${OUTPUT_PATH}/online_ST_files/
 MODEL_PATH='${MODELS_PATH}/TransCoder_model_1.pth'
 
-python codegen_sources/model/train.py \
+python -m codegen_sources.model.train \
 ## General parameters
 --dump_path $DUMP_PATH \
 --exp_name online_st \

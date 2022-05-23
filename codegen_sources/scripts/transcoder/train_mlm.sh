@@ -9,7 +9,7 @@
 DUMP_PATH='dump/transcoder/train_mlm'
 DATASET_PATH=$(ws_find code-gen)/dataset/test/XLM-syml
 
-python codegen_sources/model/train.py \
+python -m codegen_sources.model.train \
 --exp_name mlm \
 --dump_path "$DUMP_PATH" \
 --data_path "$DATASET_PATH" \

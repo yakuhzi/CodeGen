@@ -2,7 +2,7 @@ MLM_MODEL='models/mlm/mlm_roberta_size.pth'
 DUMP_PATH='dump/transcoder/train'
 DATASET_PATH=$(ws_find code-gen)/dataset/test/XLM-syml
 
-python codegen_sources/model/train.py \
+python -m codegen_sources.model.train \
     --exp_name "transcoder_train" \
     --dump_path "$DUMP_PATH" \
     --data_path "$DATASET_PATH" \

@@ -680,6 +680,10 @@ def get_parser():
         "--n_share_dec", type=int, default=0, help="Number of decoder layers to share"
     )
 
+    parser.add_argument(
+        "--correct_functions", type=bool_flag, default=False, help="Correct model output with some hardcoded rules"
+    )
+
     return parser
 
 

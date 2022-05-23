@@ -10,7 +10,7 @@ MODEL_PATH='models/transcoder/TransCoder_model_1.pth'
 DUMP_PATH='dump/transcoder_correct/eval/cpp_python/model_1'
 DATASET_PATH='dataset/transcoder/test'
 
-python codegen_sources/model/train.py \
+python -m codegen_sources.model.train \
     --exp_name transcoder_eval \
     --dump_path "$DUMP_PATH" \
     --data_path "$DATASET_PATH" \

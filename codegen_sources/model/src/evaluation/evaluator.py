@@ -333,6 +333,7 @@ class Evaluator(object):
                         params.eval_computation,
                         params.eval_subtoken_score,
                         spans,
+                        correct_functions=params.correct_functions,
                     )
                 if self.params.eval_denoising:
                     for lang in set(params.ae_steps):
@@ -346,6 +347,7 @@ class Evaluator(object):
                             eval_computation=False,
                             eval_subtoken_score=False,
                             span=None,
+                            correct_functions=params.correct_functions,
                         )
 
                 # machine translation task (evaluate perplexity and accuracy)
@@ -364,6 +366,7 @@ class Evaluator(object):
                         span=None,
                         deobfuscate=True,
                         deobfuscate_probas=deobf_probas_to_eval,
+                        correct_functions=params.correct_functions,
                     )
 
                 # prediction task (evaluate perplexity and accuracy)
@@ -743,6 +746,7 @@ class EncDecEvaluator(Evaluator):
         span,
         deobfuscate=False,
         deobfuscate_probas=None,
+        correct_functions=False,
     ):
         """
         Evaluate perplexity and next word prediction accuracy.
@@ -973,6 +977,7 @@ class EncDecEvaluator(Evaluator):
                     ref_path,
                     scores,
                     roberta_mode=params.roberta_mode,
+                    correct_functions=correct_functions,
                 )
 
             if (
@@ -993,6 +998,7 @@ class EncDecEvaluator(Evaluator):
                     scores,
                     roberta_mode=params.roberta_mode,
                     evosuite_functions=True,
+                    correct_functions=correct_functions,
                 )
             if eval_subtoken_score and data_set in datasets_for_bleu:
                 subtoken_level_scores = run_subtoken_score(ref_path, hyp_paths)
@@ -1094,6 +1100,7 @@ class EncDecEvaluator(Evaluator):
         scores,
         roberta_mode=False,
         evosuite_functions=False,
+        correct_functions=False,
     ):
         assert self.evosuite_tests_dico is not None or not evosuite_functions
         func_run_stats, func_run_out = eval_function_output(
@@ -1107,6 +1114,7 @@ class EncDecEvaluator(Evaluator):
             roberta_mode,
             evosuite_functions=evosuite_functions,
             evosuite_tests=self.evosuite_tests_dico,
+            correct_functions=correct_functions
         )
         out_paths = []
         success_for_beam_number = [0 for _ in range(len(hypothesis[0]))]

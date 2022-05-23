@@ -11,6 +11,8 @@ from concurrent.futures import ProcessPoolExecutor
 import sys
 
 import os
+
+from codegen_sources.model.src.utils import get_errors
 from ....scripts.corrections.fix_code import fix_code
 
 from ..utils import (
@@ -257,6 +259,7 @@ def submit_functions(
     script_folder,
     retry_mismatching_types,
     roberta_mode=False,
+    correct_functions=False,
 ):
     lang_processor = LangProcessor.processors[lang](root_folder=TREE_SITTER_ROOT)
     results_list = []
@@ -279,13 +282,21 @@ def submit_functions(
                 if not roberta_mode
                 else f.replace("#NEWLINE", "\n")
             )
-            script = script_model.replace(TOFILL[lang], f)
+
+            if correct_functions:
+                errors = get_errors(f_fill, tgt_language=lang)
+                script = fix_code(script_model, f_fill, lang, lang_processor, f_name=f_name, errors=errors)
+            else:
+                script = script_model.replace(TOFILL[lang], f)
+
             if lang == "python":
                 script = f"import numpy as np \nimport math\nfrom math import *\nimport collections\nfrom collections import *\nimport heapq\nimport itertools\nimport random\nimport sys\n\n{script}"
+
             script_path = f"{outfolder}/{i}.{EXT[lang]}"
             open(script_path, "w", encoding="utf-8").write(script)
             run_pg = globals()[f"run_{lang}_program"]
             result, _ = run_pg(script_path, i)
+
             if result[0] == "success":
                 results_list.append(result)
                 return results_list, i
@@ -318,36 +329,6 @@ def submit_functions(
                                 ]
                             ),
                         )
-            else:
-                try:
-                    script_transform_args = fix_code(
-                        script_model, f_fill, lang, lang_processor, f_name=f_name
-                    )
-                except KeyboardInterrupt:
-                    raise
-                except:
-                    script_transform_args = None
-
-                if script_transform_args is not None:
-                    open(script_path, "w", encoding="utf-8").write(
-                        script_transform_args
-                    )
-                    run_pg = globals()[f"run_{lang}_program"]
-                    result2, _ = run_pg(script_path, i)
-                    if result2[0] == "success":
-                        results_list.append(result2)
-                        return results_list, i
-                    else:
-                        result = (
-                            result2[0],
-                            "".join(
-                                [
-                                    result[1] if result[1] else "",
-                                    f"|| fixed run: ## function ## {script_transform_args} ## output ## {result2[1]}",
-                                ]
-                            ),
-                        )
-
             results_list.append(result)
         else:
             return [return_script_not_found()], i
@@ -365,6 +346,7 @@ def eval_function_output(
     roberta_mode,
     evosuite_functions=False,
     evosuite_tests=None,
+    correct_functions=False,
 ):
     functions = list(zip(*[read_file_lines(path) for path in hyp_paths]))
     ids = read_file_lines(id_path)
@@ -398,6 +380,7 @@ def eval_function_output(
                     script_folder,
                     retry_mismatching_types,
                     roberta_mode,
+                    correct_functions
                 )
             )
 

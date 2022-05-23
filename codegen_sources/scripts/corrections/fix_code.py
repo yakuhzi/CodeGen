@@ -19,8 +19,9 @@ def fix_code(
 ) -> str:
     f_fill = lang_processor.detokenize_code(f_fill)
     f_fill = f_fill.replace(f_name, "f_filled")
+    print("=" * 100)
     print("ORIGINAL\n", f_fill)
-    print("=" * 40)
+    print("=" * 100)
 
     code = bytes(f_fill, "utf8")
 
@@ -37,23 +38,81 @@ def fix_code(
     elif lang == "python":
         f_fill = fix_python_code(f_fill, cursor, code, errors)
 
+    print("=" * 100)
     print("FIXED\n", f_fill)
+    print("=" * 100)
     return script_model.replace(TOFILL[lang], "\n".join([f_fill, "\n"]))
 
 
 def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str, str]) -> str:
-    compile_errors, linting_errors = errors
+    compile_errors, _ = errors
     print("COMPILE ERRORS:", compile_errors)
 
+    defined_variables = []
+
+    # Fix use of undefined variables
+    for error in [x.group() for x in re.finditer("error: .*\n.*", compile_errors)]:
+        match = re.search("error: ‘(\w*)’ was not declared in this scope", error)
+
+        if match and match.group(1) not in defined_variables:
+            f_fill = re.sub("(\w* f_filled \(.*\) {\n)", r"\1  " + f"int {match.group(1)} = 0 ;\n", f_fill)
+            defined_variables.append(match.group(1))
+
+        # Fix extra '}' before return
+        if error.startswith("error: expected declaration before ‘}’ token"):
+            f_fill = re.sub("}\n(return.*\n})", r"\1", f_fill)
+
+        # Fix extra '('
+        if error.startswith("error: expected ‘)’ before"):
+            snippet = error.split("\n")[1].strip()
+            fixed_snippet = re.sub("\( \( ", "( ", snippet, 1)
+            f_fill = f_fill.replace(snippet, fixed_snippet)
+
+    # Fix using Java types
     if "‘Boolean’ does not name a type" in compile_errors:
         f_fill = f_fill.replace("Boolean", "bool")
 
-    if "Integer does not name a type" in compile_errors:
+    if "‘Integer’ does not name a type" in compile_errors:
         f_fill = f_fill.replace("Integer", "int")
 
-    if "String does not name a type" in compile_errors:
+    if "‘String’ does not name a type" in compile_errors:
         f_fill = f_fill.replace("String", "string")
 
+    # Fix wrong initial value (min / max)
+    f_fill = re.sub("^(\s*int min.*=\s*[^-])INT_MIN", r"\1INT_MAX", f_fill, flags=re.MULTILINE)
+    f_fill = re.sub("^(\s*int max.*=\s*[^-])INT_MAX", r"\1INT_MIN", f_fill, flags=re.MULTILINE)
+
+    if "memset" not in f_fill:
+        f_fill = re.sub(
+            "(^( *)((int|long|double) )+(\w*) (\[ [\w\-+ ]* \] )+;)", 
+            r"\1\n\2memset ( \5, 0, sizeof ( \5 ) );", 
+            f_fill, 
+            flags=re.MULTILINE
+        )
+
+    # Fix multiple return statements
+    f_fill = re.sub("^( *return.*)(\n* *return.*)+", r"\1", f_fill, flags=re.MULTILINE)
+
+    while f_fill.count("{") > f_fill.count("}"):
+        f_fill += "\n}"
+
+    for node in traverse_tree(cursor):
+        snippet = code[node.start_byte: node.end_byte].decode("utf8")
+        
+        # Fix additional boolean condition
+        match = re.match("(\( (.*) ((>|<|=)+) (\w*) \)) && \( (.*) ((>|<|=)+) (\w*) \)", snippet)
+
+        if node.type == "binary_expression" and match:
+            if match.group(2) == match.group(6) and match.group(5) == match.group(9):
+                first_operator = match.group(3)
+                second_operator = match.group(7)
+
+                if first_operator == "<" and second_operator == ">=" \
+                    or first_operator == "<=" and second_operator in [">", ">="] \
+                    or first_operator == ">" and second_operator  == "<=" \
+                    or first_operator == ">=" and second_operator in ["<", "<="]:
+                    f_fill = f_fill.replace(snippet, match.group(1))
+                
     return f_fill
 
 
@@ -105,6 +164,9 @@ def fix_java_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[st
     # Fix wrong range
     # if result[0] == "failure":
     #     f_fill = re.sub("(for \(.*\s.*)(<=)", r"\1<", f_fill)
+
+    # Fix multiple return statements
+    f_fill = re.sub("^( *return.*)(\n* *return.*)+", r"\1", f_fill, flags=re.MULTILINE)
 
     for node in traverse_tree(cursor):
         snippet = code[node.start_byte: node.end_byte].decode("utf8")
@@ -196,6 +258,9 @@ def fix_python_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[
 
     # Fix global variable misuse
     f_fill = re.sub("^(\s*)global\s*(\w*)$", r"\1\2 = 0", f_fill, flags=re.MULTILINE)
+
+    # Fix multiple return statements
+    f_fill = re.sub("^(    return.*)(\n*    return.*)+", r"\1", f_fill, flags=re.MULTILINE)
     return f_fill
 
 

@@ -8,42 +8,23 @@ from ...model.src.evaluation.comp_acc_computation import (
     run_java_program,
     run_python_program
 )
-from ...model.src.utils import (
-    get_cpp_compilation_errors,
-    get_java_compilation_errors,
-    get_python_compilation_errors,
-    get_python_linting_errors
-)
+from ...model.src.utils import get_errors
 from ...model.translate import Translator
 from ...preprocessing.lang_processors.lang_processor import LangProcessor
 from .fix_code import fix_code
 
 TREE_SITTER_ROOT = Path(__file__).parents[3].joinpath("tree-sitter")
-SRC_LANGUAGE = 'java'
-TGT_LANGUAGE = 'cpp'
-RUN = '20668766'
+SRC_LANGUAGE = 'cpp'
+TGT_LANGUAGE = 'java'
+RUN = '20668775'
 PATH = f'dataset/transcoder/test/transcoder_test.{SRC_LANGUAGE}.tok'
-OUT_DIR = f'dump/transcoder_st_correctios/{SRC_LANGUAGE}_{TGT_LANGUAGE}'
+OUT_DIR = f'dump/transcoder_st_corrections/{SRC_LANGUAGE}_{TGT_LANGUAGE}'
 FILLED_OUT_DIR = f"{OUT_DIR}/filled"
 FIXED_OUT_DIR = f"{OUT_DIR}/fixed"
 COMPILE_OUT_DIR = f"{OUT_DIR}/compile"
 
 src_lang_processor = LangProcessor.processors[SRC_LANGUAGE](root_folder=TREE_SITTER_ROOT)
 tgt_lang_processor = LangProcessor.processors[TGT_LANGUAGE](root_folder=TREE_SITTER_ROOT)
-
-
-def get_errors(function: str, function_id: str) -> Tuple[str, str]:
-    if TGT_LANGUAGE == "cpp":
-        compile_errors = get_cpp_compilation_errors(function)
-        return compile_errors, None
-    elif TGT_LANGUAGE == "java":
-        compile_errors = get_java_compilation_errors(function)
-        linting_errors = None
-        return compile_errors, linting_errors
-    elif TGT_LANGUAGE == "python":
-        compile_errors = get_python_compilation_errors(function)
-        linting_errors = get_python_linting_errors(function)
-        return compile_errors, linting_errors
 
 
 def run_program(script_path: str):
@@ -75,9 +56,6 @@ with torch.no_grad():
         breaked = 0
 
         for index, line in enumerate(file):
-            if index < 155:
-                continue
-
             function_id = line.split(" | ")[0]
             file_suffix = "py" if TGT_LANGUAGE == "python" else TGT_LANGUAGE
             original_eval_path = f"data/transcoder_evaluation_gfg/{TGT_LANGUAGE}/{function_id}.{file_suffix}"
@@ -86,17 +64,19 @@ with torch.no_grad():
             total += 1
 
             whitelist = [
-                "CHECK_INTEGER_OVERFLOW_MULTIPLICATION"
+                "STRING_CONTAINING_FIRST_LETTER_EVERY_WORD_GIVEN_STRING_SPACES",
             ]
-
-            if function_id not in whitelist:
-                continue
+            
+            # if function_id not in whitelist:
+            #     continue
 
             if not os.path.exists(filled_eval_path):
                 skipped += 1
                 continue
 
+            print("+" * 100)
             print(f"Executing '{function_id}'", index)
+            print("+" * 100)
             executed += 1
 
             function = " | ".join(line.split(" | ")[1:])
@@ -122,7 +102,7 @@ with torch.no_grad():
             )[0].replace("@ @", "")
 
             f_name = tgt_lang_processor.get_function_name(f_fill)
-            errors = get_errors(f_fill, function_id)
+            errors = get_errors(f_fill, TGT_LANGUAGE)
 
             fixed_script_model = fix_code(
                 original_script_model,
