@@ -58,7 +58,7 @@ EVOSUITE_TESTS_TRANSCODER_PATH = (
 def eval_state(proc, proc_name):
     try:
         try:
-            result, stderr = proc.communicate(timeout=10)
+            result, stderr = proc.communicate(timeout=120)
         except subprocess.TimeoutExpired:
             c = (
                 "kill `ps aux | grep '"

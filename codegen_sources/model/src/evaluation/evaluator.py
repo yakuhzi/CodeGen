@@ -309,14 +309,14 @@ class Evaluator(object):
                     params.mt_steps
                     + [(l2, l3) for _, l2, l3 in params.bt_steps]
                     + [(l1, l2) for l1, langs2 in params.st_steps for l2 in langs2]
-                    # + [(l2, l1) for l1, langs2 in params.st_steps for l2 in langs2]
-                    # + [
-                    #     (l2_1, l2_2)
-                    #     for l1, langs2 in params.st_steps
-                    #     for l2_1 in langs2
-                    #     for l2_2 in langs2
-                    #     if l2_1 != l2_2
-                    # ]
+                    + [(l2, l1) for l1, langs2 in params.st_steps for l2 in langs2]
+                    + [
+                        (l2_1, l2_2)
+                        for l1, langs2 in params.st_steps
+                        for l2_1 in langs2
+                        for l2_2 in langs2
+                        if l2_1 != l2_2
+                    ]
                     + params.mt_spans_steps
                 ):
                     spans = None
