@@ -282,7 +282,7 @@ class MultiHeadAttention(nn.Module):
         # (bs, qlen, dim)
         context = unshape(context)
 
-        return self.out_lin(context)
+        return self.out_lin(context), weights
 
 
 class TransformerFFN(nn.Module):
@@ -433,6 +433,8 @@ class TransformerModel(nn.Module):
             return self.fwd(**kwargs)
         elif mode == "predict":
             return self.predict(**kwargs)
+        elif mode == "":
+            return self.fwd(**kwargs)
         else:
             raise Exception("Unknown mode: %s" % mode)
 
@@ -447,6 +449,7 @@ class TransformerModel(nn.Module):
         langs=None,
         use_cache=False,
         spans=None,
+        return_weights=False
     ):
         """
         Inputs:
@@ -517,14 +520,16 @@ class TransformerModel(nn.Module):
         tensor = self.layer_norm_emb(tensor)
         tensor = F.dropout(tensor, p=self.dropout, training=self.training)
         tensor *= mask.unsqueeze(-1).to(tensor.dtype)
+        
+        attention_weights = []
 
         # transformer layers
         for i in range(self.n_layers):
-
             # self attention
             self.attentions[i].cache = self.cache
-            attn = self.attentions[i](tensor, attn_mask, use_cache=use_cache)
-            attn = F.dropout(attn, p=self.dropout, training=self.training)
+            res, weights = self.attentions[i](tensor, attn_mask, use_cache=use_cache)
+            attention_weights.append(weights)
+            attn = F.dropout(res, p=self.dropout, training=self.training)
             tensor = tensor + attn
             tensor = self.layer_norm1[i](tensor)
 
@@ -532,7 +537,7 @@ class TransformerModel(nn.Module):
             if self.is_decoder and src_enc is not None:
                 assert src_enc.shape[1] == src_mask.shape[-1]
                 self.encoder_attn[i].cache = self.cache
-                attn = self.encoder_attn[i](
+                attn, _ = self.encoder_attn[i](
                     tensor, src_mask, kv=src_enc, use_cache=use_cache
                 )
                 attn = F.dropout(attn, p=self.dropout, training=self.training)
@@ -552,7 +557,10 @@ class TransformerModel(nn.Module):
         # move back sequence length to dimension 0
         tensor = tensor.transpose(0, 1)
 
-        return tensor
+        if return_weights:
+            return tensor, attention_weights
+        else:
+            return tensor
 
     def predict(self, tensor, pred_mask, y, get_scores):
         """

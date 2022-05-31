@@ -138,6 +138,7 @@ class Translator:
         max_tokens=None,
         length_penalty=0.5,
         max_len=None,
+        return_weights=False
     ):
 
         # Build language processors
@@ -194,7 +195,20 @@ class Translator:
             langs1 = x1.clone().fill_(lang1_id)
 
             # Encode
-            enc1 = self.encoder("fwd", x=x1, lengths=len1, langs=langs1, causal=False)
+            enc_res = self.encoder(
+                "fwd", 
+                x=x1, 
+                lengths=len1, 
+                langs=langs1, 
+                causal=False, 
+                return_weights=return_weights
+            )
+            
+            if return_weights:
+                enc1, weights = enc_res
+            else:
+                enc1 = enc_res
+            
             enc1 = enc1.transpose(0, 1)
             if n > 1:
                 enc1 = enc1.repeat(n, 1, 1)
@@ -238,8 +252,11 @@ class Translator:
             results = []
             for t in tok:
                 results.append(detokenizer(t))
-            return results
-
+                
+            if return_weights:
+                return results, weights, tokens
+            else:
+                return results
 
 if __name__ == "__main__":
     # generate parser / parse parameters
