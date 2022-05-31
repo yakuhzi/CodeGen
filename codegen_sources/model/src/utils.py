@@ -1099,8 +1099,8 @@ def get_errors(function: str, tgt_language: str) -> Tuple[str, str]:
         return compile_errors, linting_errors
     elif tgt_language == "python":
         compile_errors = get_python_compilation_errors(function)
-        # linting_errors = get_python_linting_errors(function)
-        return compile_errors, None
+        linting_errors = get_python_linting_errors(function)
+        return compile_errors, linting_errors
 
 
 def get_java_compilation_errors(code, timeout=20):

@@ -43,7 +43,6 @@ python -m codegen_sources.model.train \
     --eval_only true \
     --st_steps 'cpp_sa-python_sa' \
     --st_beam_size 20 \
-    --beam_size 10 \
     --lambda_st 1 \
     --robin_cache false \
     --st_sample_size 200 \

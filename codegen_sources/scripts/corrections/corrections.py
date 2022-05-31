@@ -1,31 +1,36 @@
+import argparse
 import os
 from pathlib import Path
 from typing import Tuple
+
 import torch
 
-from ...model.src.evaluation.comp_acc_computation import (
-    run_cpp_program,
-    run_java_program,
-    run_python_program
-)
+from ...model.src.evaluation.comp_acc_computation import (run_cpp_program,
+                                                          run_java_program,
+                                                          run_python_program)
 from ...model.src.utils import get_errors
 from ...model.translate import Translator
 from ...preprocessing.lang_processors.lang_processor import LangProcessor
 from .fix_code import fix_code
 
-TREE_SITTER_ROOT = Path(__file__).parents[3].joinpath("tree-sitter")
-SRC_LANGUAGE = 'cpp'
-TGT_LANGUAGE = 'java'
-RUN = '20668775'
-PATH = f'dataset/transcoder/test/transcoder_test.{SRC_LANGUAGE}.tok'
-OUT_DIR = f'dump/transcoder_st_corrections/{SRC_LANGUAGE}_{TGT_LANGUAGE}'
-FILLED_OUT_DIR = f"{OUT_DIR}/filled"
-FIXED_OUT_DIR = f"{OUT_DIR}/fixed"
-COMPILE_OUT_DIR = f"{OUT_DIR}/compile"
 
-src_lang_processor = LangProcessor.processors[SRC_LANGUAGE](root_folder=TREE_SITTER_ROOT)
-tgt_lang_processor = LangProcessor.processors[TGT_LANGUAGE](root_folder=TREE_SITTER_ROOT)
+def get_parser():
+    """
+    Generate a parameters parser.
+    """
+    # parse parameters
+    parser = argparse.ArgumentParser(description="TransCoder Corrections")
 
+    # main parameters
+    parser.add_argument(
+        "--src_lang", "-s", type=str, default="cpp", help="Source language"
+    )
+
+    parser.add_argument(
+        "--tgt_lang", "-t", type=str, default="java", help="Target language"
+    )
+
+    return parser
 
 def run_program(script_path: str):
     if TGT_LANGUAGE == "cpp":
@@ -35,6 +40,27 @@ def run_program(script_path: str):
     elif TGT_LANGUAGE == "python":
         return run_python_program(script_path, 0)
 
+
+parser = get_parser()
+params = parser.parse_args()
+
+TREE_SITTER_ROOT = Path(__file__).parents[3].joinpath("tree-sitter")
+SRC_LANGUAGE = params.src_lang
+TGT_LANGUAGE = params.tgt_lang
+RUN = os.listdir(f"dump/transcoder_st/eval/{SRC_LANGUAGE}_{TGT_LANGUAGE}/online_st")[0]
+RUN_PATH = f"dump/transcoder_st/eval/{SRC_LANGUAGE}_{TGT_LANGUAGE}/online_st/{RUN}"
+PATH = f'dataset/transcoder/test/transcoder_test.{SRC_LANGUAGE}.tok'
+OUT_DIR = f'dump/transcoder_st_corrections/{SRC_LANGUAGE}_{TGT_LANGUAGE}'
+FILLED_OUT_DIR = f"{OUT_DIR}/filled"
+FIXED_OUT_DIR = f"{OUT_DIR}/fixed"
+COMPILE_OUT_DIR = f"{OUT_DIR}/compile"
+
+src_lang_processor = LangProcessor.processors[SRC_LANGUAGE](root_folder=TREE_SITTER_ROOT)
+tgt_lang_processor = LangProcessor.processors[TGT_LANGUAGE](root_folder=TREE_SITTER_ROOT)
+
+print("=" * 100)
+print(f"Corrections for {SRC_LANGUAGE} -> {TGT_LANGUAGE}")
+print("=" * 100)
 
 with torch.no_grad():
     translator_path = f"models/transcoder_st/Online_ST_{SRC_LANGUAGE.title()}_{TGT_LANGUAGE.title()}.pth"
@@ -59,16 +85,18 @@ with torch.no_grad():
             function_id = line.split(" | ")[0]
             file_suffix = "py" if TGT_LANGUAGE == "python" else TGT_LANGUAGE
             original_eval_path = f"data/transcoder_evaluation_gfg/{TGT_LANGUAGE}/{function_id}.{file_suffix}"
-            filled_eval_path = f"dump/transcoder_st/eval/{SRC_LANGUAGE}_{TGT_LANGUAGE}/online_st/{RUN}/eval_scripts/{SRC_LANGUAGE}_sa-{TGT_LANGUAGE}_sa.test/{function_id}.{file_suffix}"
+            filled_eval_path = f"{RUN_PATH}/eval_scripts/{SRC_LANGUAGE}_sa-{TGT_LANGUAGE}_sa.test/{function_id}.{file_suffix}"
 
             total += 1
 
             whitelist = [
-                "STRING_CONTAINING_FIRST_LETTER_EVERY_WORD_GIVEN_STRING_SPACES",
+                "MAXIMUM_AREA_RECTANGLE_PICKING_FOUR_SIDES_ARRAY",
+                # "SUM_AREA_RECTANGLES_POSSIBLE_ARRAY",
+                "PARTITION_INTO_TWO_SUBARRAYS_OF_LENGTHS_K_AND_N_K_SUCH_THAT_THE_DIFFERENCE_OF_SUMS_IS_MAXIMUM"
             ]
             
-            # if function_id not in whitelist:
-            #     continue
+            if function_id not in whitelist:
+                pass
 
             if not os.path.exists(filled_eval_path):
                 skipped += 1

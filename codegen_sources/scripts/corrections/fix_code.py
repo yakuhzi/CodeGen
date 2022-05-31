@@ -122,14 +122,13 @@ def fix_java_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[st
 
     # Fix type conversion errors
     for error in "\n".join([line.strip() for line in compile_errors.split("\n")]).split("^\n")[:-1]:
+        error_code = error.split("\n")[1].strip().replace(";", "")
         match = re.search(
             r"from ((int)|(long)|(float)|(double)|(char)) to ((int)|(long)|(float)|(double)|(char))",
             error
         )
-        error_code = error.split("\n")[1].strip().replace(";", "")
 
         if match:
-            used_type = match.group(1)
             expected_type = match.group(7)
 
             if "=" in error_code:
@@ -146,6 +145,13 @@ def fix_java_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[st
         if "error: ';' expected" in error:
             fixed_code = error_code.replace(",", ";")
             f_fill = f_fill.replace(error_code, fixed_code)
+
+        # Fix wrong log usage
+        if "cannot find symbol" in error:
+            f_fill = f_fill.replace("log10", "Math . log10")
+            f_fill = f_fill.replace("log2", "log")
+
+        f_fill = f_fill.replace(", Collections . reverseOrder ( )", "")
 
     # Fix reference function has different argument types
     # match = re.search("incompatible types: ((\w*)[ [\]]*) cannot be converted to ((\w*)[ [\]]*)", errors)
@@ -167,6 +173,13 @@ def fix_java_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[st
 
     # Fix multiple return statements
     f_fill = re.sub("^( *return.*)(\n* *return.*)+", r"\1", f_fill, flags=re.MULTILINE)
+
+    # Fix compare boolean with int
+    f_fill = re.sub("((while|if) \(.*(<|>|<=|>=|==).*\)) (==|!=) \d* \)", r"\1 )", f_fill)
+
+    if "int i " in f_fill:
+        f_fill = re.sub("i == true", "i == 1", f_fill)
+        f_fill = re.sub("i == false", "i == 0", f_fill)
 
     for node in traverse_tree(cursor):
         snippet = code[node.start_byte: node.end_byte].decode("utf8")
@@ -203,6 +216,15 @@ def fix_python_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[
     print("COMPILE ERRORS:", compile_errors)
     print("LINTING ERRORS:", linting_errors)
 
+    # Fix usage of variable before assignment
+    for error in linting_errors.split("\n"):
+        match = re.search("Using variable '(\w*)' before assignment", error)
+        defined_variables = []
+
+        if match and match.group(1) not in defined_variables:
+            f_fill = re.sub("(def f_filled \( .* \) :\n)", r"\1    " + f"{match.group(1)} = 0\n", f_fill)
+            defined_variables.append(match.group(1))
+
     for node in traverse_tree(cursor):
         snippet = code[node.start_byte: node.end_byte].decode("utf8")
 
@@ -217,12 +239,8 @@ def fix_python_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[
                     fixed_snippet = left_side + "=" + ",".join(right_side.split(",")[:left_side.count(',') + 1])
                     f_fill = f_fill.replace(snippet, fixed_snippet)
                 elif left_side.count(',') > right_side.count(','):
-                    fixed_snippet = ",".join(left_side.split(",")[:right_side.count(',') + 1]) + "=" + right_side
+                    fixed_snippet = left_side + "=" + right_side + " , 0"
                     f_fill = f_fill.replace(snippet, fixed_snippet)
-
-        # Fix missing typecast to int for math.sqrt
-        # if node.type == "call" and snippet.startswith("math.sqrt"):
-        #     f_fill = f_fill.replace(snippet, f"int( {snippet} )")
 
         # Fix intersection instead of in
         if node.type == "call" and "intersection" in snippet:
@@ -261,6 +279,12 @@ def fix_python_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[
 
     # Fix multiple return statements
     f_fill = re.sub("^(    return.*)(\n*    return.*)+", r"\1", f_fill, flags=re.MULTILINE)
+
+    # Fix swap
+    f_fill = re.sub("swap \( (\w*) , (\w*) \)", r"\1, \2 = \2, \1", f_fill)
+
+    # Fix missing typecast to int for math.sqrt in range of for loop
+    f_fill = re.sub("(for .* range \(.*)(math.sqrt \( .*? \))(.*\) :)", r"\1int ( \2 )\3", f_fill)
     return f_fill
 
 
