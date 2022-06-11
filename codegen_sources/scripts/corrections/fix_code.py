@@ -52,10 +52,10 @@ def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str
 
     # Fix use of undefined variables
     for error in [x.group() for x in re.finditer("error: .*\n.*", compile_errors)]:
-        match = re.search("error: ‘(\w*)’ was not declared in this scope", error)
+        match = re.search("error: ‘(\w+)’ was not declared in this scope", error)
 
         if match and match.group(1) not in defined_variables:
-            f_fill = re.sub("(\w* f_filled \(.*\) {\n)", r"\1  " + f"int {match.group(1)} = 0 ;\n", f_fill)
+            f_fill = re.sub("(\w+ f_filled \(.*\) {\n)", r"\1  " + f"int {match.group(1)} = 0 ;\n", f_fill)
             defined_variables.append(match.group(1))
 
         # Fix extra '}' before return
@@ -82,9 +82,10 @@ def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str
     f_fill = re.sub("^(\s*int min.*=\s*[^-])INT_MIN", r"\1INT_MAX", f_fill, flags=re.MULTILINE)
     f_fill = re.sub("^(\s*int max.*=\s*[^-])INT_MAX", r"\1INT_MIN", f_fill, flags=re.MULTILINE)
 
+    # Fix missing memset
     if "memset" not in f_fill:
         f_fill = re.sub(
-            "(^( *)((int|long|double) )+(\w*) (\[ [\w\-+ ]* \] )+;)", 
+            "(^( *)((int|long|double) )+(\w+) (\[ [\w\-+ ]* \] )+;)", 
             r"\1\n\2memset ( \5, 0, sizeof ( \5 ) );", 
             f_fill, 
             flags=re.MULTILINE
@@ -100,7 +101,7 @@ def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str
         snippet = code[node.start_byte: node.end_byte].decode("utf8")
         
         # Fix additional boolean condition
-        match = re.match("(\( (.*) ((>|<|=)+) (\w*) \)) && \( (.*) ((>|<|=)+) (\w*) \)", snippet)
+        match = re.match("(\( (.*) ((>|<|=)+) (\+) \)) && \( (.*) ((>|<|=)+) (\w+) \)", snippet)
 
         if node.type == "binary_expression" and match:
             if match.group(2) == match.group(6) and match.group(5) == match.group(9):
@@ -154,7 +155,7 @@ def fix_java_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[st
         f_fill = f_fill.replace(", Collections . reverseOrder ( )", "")
 
     # Fix reference function has different argument types
-    # match = re.search("incompatible types: ((\w*)[ [\]]*) cannot be converted to ((\w*)[ [\]]*)", errors)
+    # match = re.search("incompatible types: ((\+)[ [\]]*) cannot be converted to ((\w+)[ [\]]*)", errors)
 
     # if match:
     #     f_fill = re.sub("(?<!(for \( )|(out\.pr))" + match.group(3).replace("[", "\\[").replace("]", "\\]"), match.group(1).lower(), f_fill)
@@ -185,8 +186,16 @@ def fix_java_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[st
         snippet = code[node.start_byte: node.end_byte].decode("utf8")
 
         # Fix Arrays.fill runtime errors
-        # if "Arrays.fill" in errors and node.type == "expression_statement" and snippet.startswith("Arrays . fill "):
-        #     f_fill = f_fill.replace(snippet, "")
+        if node.type == "expression_statement" and snippet.startswith("Arrays . fill "):
+            array_vars = re.findall(r"\w+ (\w+) \[ \] \[ \] = new \w+ \[.*\] \[.*\] ;", f_fill, flags=re.MULTILINE)
+            array_vars += re.findall(r"\w+ \[ \] \[ \] (\w+) = new \w+ \[.*\] \[.*\] ;", f_fill, flags=re.MULTILINE)
+            match = re.search(r"Arrays \. fill \( (\w+) , \w+ \) ;", snippet)
+
+            if match:
+                array_var = match.group(1)
+
+                if array_var in array_vars:
+                    f_fill = f_fill.replace(snippet + "\n", "")
 
         # Fix unary operator used as boolean expression
         if "for unary operator '!'" in compile_errors and node.type == "unary_expression":
@@ -199,7 +208,7 @@ def fix_java_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[st
             f_fill = f_fill.replace(snippet, fixed_snippet)
 
         # Fix unitinitialized variable
-        match = re.search(r"variable (\w*) might not have been initialized", compile_errors)
+        match = re.search(r"variable (\w+) might not have been initialized", compile_errors)
 
         if match:
             variable = match.group(1)
@@ -218,7 +227,7 @@ def fix_python_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[
 
     # Fix usage of variable before assignment
     for error in linting_errors.split("\n"):
-        match = re.search("Using variable '(\w*)' before assignment", error)
+        match = re.search("Using variable '(\w+)' before assignment", error)
         defined_variables = []
 
         if match and match.group(1) not in defined_variables:
@@ -244,7 +253,7 @@ def fix_python_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[
 
         # Fix intersection instead of in
         if node.type == "call" and "intersection" in snippet:
-            fixed_snippet = re.sub("(\w*)\.intersection \((.*?)\)", r"\2 in \1", snippet)
+            fixed_snippet = re.sub("(\w+)\.intersection \((.*?)\)", r"\2 in \1", snippet)
             f_fill = f_fill.replace(snippet, fixed_snippet)
 
     # Fix rounding issues
@@ -275,13 +284,13 @@ def fix_python_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[
     f_fill = re.sub("^(\s*max.*=.*)[^-]sys\.maxsize(.*)$", r"\1-sys.maxsize\2", f_fill, flags=re.MULTILINE)
 
     # Fix global variable misuse
-    f_fill = re.sub("^(\s*)global\s*(\w*)$", r"\1\2 = 0", f_fill, flags=re.MULTILINE)
+    f_fill = re.sub("^(\s*)global\s*(\w+)$", r"\1\2 = 0", f_fill, flags=re.MULTILINE)
 
     # Fix multiple return statements
     f_fill = re.sub("^(    return.*)(\n*    return.*)+", r"\1", f_fill, flags=re.MULTILINE)
 
     # Fix swap
-    f_fill = re.sub("swap \( (\w*) , (\w*) \)", r"\1, \2 = \2, \1", f_fill)
+    f_fill = re.sub("swap \( (\w+) , (\w+) \)", r"\1, \2 = \2, \1", f_fill)
 
     # Fix missing typecast to int for math.sqrt in range of for loop
     f_fill = re.sub("(for .* range \(.*)(math.sqrt \( .*? \))(.*\) :)", r"\1int ( \2 )\3", f_fill)
