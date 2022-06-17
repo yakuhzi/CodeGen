@@ -1,27 +1,29 @@
 #!/bin/bash
 #SBATCH --ntasks=10
-#SBATCH --time=1:00:00
-#SBATCH --mem=80GB
+#SBATCH --time=1:30:00
+#SBATCH --mem=350GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=transcoder_eval_cpp_java
-#SBATCH --output=corrections_eval_cpp_java_%j.out
+#SBATCH --job-name=transcoder_eval_all_1
+#SBATCH --output=corrections_eval_all_1_%j.out
 
-MODEL_PATH='models/transcoder/TransCoder_model_2.pth'
-DUMP_PATH='dump/transcoder_corrections/eval/cpp_java/model_2'
+MODEL_PATH='models/transcoder/TransCoder_model_1.pth'
+DUMP_PATH='dump/transcoder_corrections/eval/all/model_1'
 DATASET_PATH='dataset/transcoder/test'
 
 python -m codegen_sources.model.train \
     --exp_name transcoder_eval \
     --dump_path "$DUMP_PATH" \
     --data_path "$DATASET_PATH" \
-    --bt_steps 'java_sa-cpp_sa-java_sa' \
+    --bt_steps 'java_sa-cpp_sa-java_sa,python_sa-cpp_sa-python_sa,cpp_sa-java_sa-cpp_sa,python_sa-java_sa-python_sa,cpp_sa-python_sa-cpp_sa,java_sa-python_sa-java_sa,' \
     --encoder_only False \
     --n_layers 0  \
     --n_layers_encoder 6  \
     --n_layers_decoder 6 \
     --emb_dim 1024  \
     --n_heads 8  \
-    --lgs 'cpp_sa-java_sa'  \
+    --lgs 'cpp_sa-java_sa-python_sa' \
+    --max_vocab 64000 \
+    --max_len 512 \
     --max_vocab 64000 \
     --gelu_activation false \
     --roberta_mode false  \

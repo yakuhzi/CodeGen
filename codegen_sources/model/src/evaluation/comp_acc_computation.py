@@ -12,7 +12,7 @@ import sys
 
 import os
 
-from codegen_sources.model.src.utils import get_errors
+from codegen_sources.model.src.utils import get_errors, has_compile_errors
 from ....scripts.corrections.fix_code import fix_code
 
 from ..utils import (
@@ -91,7 +91,6 @@ def run_python_program(script_path, i):
     )
     res = eval_state(proc, f"python {script_path}")
     return res, i
-
 
 def run_java_program(script_path, i):
     folder = os.path.dirname(script_path)
@@ -274,6 +273,7 @@ def submit_functions(
                 f = f.replace(f_name, "f_filled")
             except:
                 results_list.append(("error", "Could not replace function name"))
+                f_name = ""
             if f_fill == ref:
                 results_list.append(("success", "identical to gold"))
                 return results_list, i
@@ -329,6 +329,11 @@ def submit_functions(
                                 ]
                             ),
                         )
+
+            if has_compile_errors(f_fill, tgt_language=lang):
+                results_list.append(("compile_error", i))
+                return results_list, i
+
             results_list.append(result)
         else:
             return [return_script_not_found()], i
@@ -391,6 +396,7 @@ def eval_function_output(
         "timeout": 0,
         "script_not_found": 0,
         "identical_gold": 0,
+        "compile_error": 0
     }
     results = ["" for _ in range(len(ids))]
     for job in jobs:

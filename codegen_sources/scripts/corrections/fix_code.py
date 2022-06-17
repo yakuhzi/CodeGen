@@ -50,10 +50,10 @@ def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str
 
     defined_variables = []
 
-    # Fix use of undefined variables
     for error in [x.group() for x in re.finditer("error: .*\n.*", compile_errors)]:
         match = re.search("error: ‘(\w+)’ was not declared in this scope", error)
 
+        # Fix use of undefined variables
         if match and match.group(1) not in defined_variables:
             f_fill = re.sub("(\w+ f_filled \(.*\) {\n)", r"\1  " + f"int {match.group(1)} = 0 ;\n", f_fill)
             defined_variables.append(match.group(1))
@@ -197,12 +197,12 @@ def fix_java_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[st
                 if array_var in array_vars:
                     f_fill = f_fill.replace(snippet + "\n", "")
 
-        # Fix unary operator used as boolean expression
+        # Fix unary operator used with bitwise operation as boolean expression
         if "for unary operator '!'" in compile_errors and node.type == "unary_expression":
             fixed_snippet = "( " + snippet.replace("!", "") + " ) == 0"
             f_fill = f_fill.replace(snippet, fixed_snippet)
 
-        # Fix unary used in if condition
+        # Fix bitwise AND used in if condition
         if "if" in compile_errors and "&" in snippet and "&&" not in snippet and node.type == "parenthesized_expression":
             fixed_snippet = snippet.replace("(", "((").replace(")", ") == 1)")
             f_fill = f_fill.replace(snippet, fixed_snippet)

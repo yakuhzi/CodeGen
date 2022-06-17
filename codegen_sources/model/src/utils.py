@@ -1089,6 +1089,19 @@ def get_programming_language_name(lang):
         )
 
 
+def has_compile_errors(function: str, tgt_language: str) -> Tuple[str, str]:
+    if tgt_language == "cpp":
+        compile_errors = get_cpp_compilation_errors(function)
+        return compile_errors != "success" and compile_errors != "timeout"
+    elif tgt_language == "java":
+        compile_errors = get_java_compilation_errors(function)
+        linting_errors = None
+        return compile_errors != "success" and compile_errors != "timeout"
+    elif tgt_language == "python":
+        compile_errors = get_python_compilation_errors(function)
+        return compile_errors != "success"
+
+
 def get_errors(function: str, tgt_language: str) -> Tuple[str, str]:
     if tgt_language == "cpp":
         compile_errors = get_cpp_compilation_errors(function)
@@ -1134,7 +1147,7 @@ def get_java_compilation_errors(code, timeout=20):
 
 def get_cpp_compilation_errors(code, timeout=20):
     file = write_cpp_function(code)
-    comp_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; g++ {file} -o {file}_cpp"
+    comp_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; g++ {file} -o {file}_cpp -c"
     timed_out = False
     try:
         proc = subprocess.run(
