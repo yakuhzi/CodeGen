@@ -521,14 +521,15 @@ class TransformerModel(nn.Module):
         tensor = F.dropout(tensor, p=self.dropout, training=self.training)
         tensor *= mask.unsqueeze(-1).to(tensor.dtype)
         
-        attention_weights = []
+        self_attention_weights = []
+        cross_attention_weights = []
 
         # transformer layers
         for i in range(self.n_layers):
             # self attention
             self.attentions[i].cache = self.cache
-            res, weights = self.attentions[i](tensor, attn_mask, use_cache=use_cache)
-            attention_weights.append(weights)
+            res, self_weights = self.attentions[i](tensor, attn_mask, use_cache=use_cache)
+            self_attention_weights.append(self_weights)
             attn = F.dropout(res, p=self.dropout, training=self.training)
             tensor = tensor + attn
             tensor = self.layer_norm1[i](tensor)
@@ -537,9 +538,10 @@ class TransformerModel(nn.Module):
             if self.is_decoder and src_enc is not None:
                 assert src_enc.shape[1] == src_mask.shape[-1]
                 self.encoder_attn[i].cache = self.cache
-                attn, _ = self.encoder_attn[i](
+                attn, cross_weights = self.encoder_attn[i](
                     tensor, src_mask, kv=src_enc, use_cache=use_cache
                 )
+                cross_attention_weights.append(cross_weights)
                 attn = F.dropout(attn, p=self.dropout, training=self.training)
                 tensor = tensor + attn
                 tensor = self.layer_norm15[i](tensor)
@@ -558,7 +560,10 @@ class TransformerModel(nn.Module):
         tensor = tensor.transpose(0, 1)
 
         if return_weights:
-            return tensor, attention_weights
+            if self.is_decoder:
+                return tensor, self_attention_weights, cross_attention_weights
+            else:
+                return tensor, self_attention_weights
         else:
             return tensor
 
@@ -577,7 +582,7 @@ class TransformerModel(nn.Module):
         return scores, loss
 
     def generate(
-        self, src_enc, src_len, tgt_lang_id, max_len=200, sample_temperature=None
+        self, src_enc, src_len, tgt_lang_id, max_len=200, sample_temperature=None, return_weights=False
     ):
         """
         Decode a sentence given initial start.
@@ -634,6 +639,10 @@ class TransformerModel(nn.Module):
         # cache compute states
         self.cache = {"slen": 0}
         previous_unfinished_mask = unfinished_sents.ne(0)
+
+        decoder_attention_weights = []
+        cross_attention_weights = []
+
         while cur_len < global_max_len:
             # compute word scores
             unfinished_mask = unfinished_sents.ne(0)
@@ -649,7 +658,7 @@ class TransformerModel(nn.Module):
                             cached_tensor[restricted_mask] for cached_tensor in v
                         )
 
-            tensor = self.forward(
+            tensor, decoder_weights, cross_weights = self.forward(
                 "fwd",
                 x=generated[:cur_len, unfinished_mask],
                 lengths=gen_len[unfinished_mask],
@@ -659,7 +668,12 @@ class TransformerModel(nn.Module):
                 src_enc=src_enc[unfinished_mask],
                 src_len=src_len[unfinished_mask],
                 use_cache=True,
+                return_weights=return_weights,
             )
+
+            decoder_attention_weights.append(decoder_weights)
+            cross_attention_weights.append(cross_weights)
+
             assert tensor.size() == (1, unfinished_mask.sum().item(), self.dim), (
                 cur_len,
                 global_max_len,
@@ -703,7 +717,10 @@ class TransformerModel(nn.Module):
         # sanity check
         assert (generated == self.eos_index).sum() == 2 * bs
 
-        return generated[:cur_len], gen_len
+        if return_weights:
+            return generated[:cur_len], gen_len, decoder_attention_weights, cross_attention_weights
+        else:
+            return generated[:cur_len], gen_len
 
     def generate_beam(
         self,

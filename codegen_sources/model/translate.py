@@ -15,6 +15,7 @@ import argparse
 from pathlib import Path
 import sys
 import torch
+import torch.nn.functional as F
 from codegen_sources.model.src.logger import create_logger
 from codegen_sources.preprocessing.lang_processors.cpp_processor import CppProcessor
 from codegen_sources.preprocessing.lang_processors.java_processor import JavaProcessor
@@ -170,14 +171,14 @@ class Translator:
 
             # Convert source code to ids
             if tokenized:
-                tokens = input_code.strip().split()
+                src_tokens = input_code.strip().split()
             else:
-                tokens = [t for t in tokenizer(input_code)]
+                src_tokens = [t for t in tokenizer(input_code)]
             print(f"Tokenized {lang1} function:")
-            print(tokens)
-            tokens = self.bpe_model.apply_bpe(" ".join(tokens)).split()
-            tokens = ["</s>"] + tokens + ["</s>"]
-            input_code = " ".join(tokens)
+            print(src_tokens)
+            src_tokens = self.bpe_model.apply_bpe(" ".join(src_tokens)).split()
+            src_tokens = ["<s>"] + src_tokens + ["</s>"]
+            input_code = " ".join(src_tokens)
             if max_tokens is not None and len(input_code.split()) > max_tokens:
                 logger.info(
                     f"Ignoring long input sentence of size {len(input_code.split())}"
@@ -205,7 +206,7 @@ class Translator:
             )
             
             if return_weights:
-                enc1, weights = enc_res
+                enc1, encoder_attention_weights = enc_res
             else:
                 enc1 = enc_res
             
@@ -220,13 +221,24 @@ class Translator:
                     min(self.reloaded_params.max_len, 3 * len1.max().item() + 10)
                 )
             if beam_size == 1:
-                x2, len2 = self.decoder.generate(
-                    enc1,
-                    len1,
-                    lang2_id,
-                    max_len=max_len,
-                    sample_temperature=sample_temperature,
-                )
+                if return_weights:
+                    x2, len2, decoder_weights, cross_weights = self.decoder.generate(
+                        enc1,
+                        len1,
+                        lang2_id,
+                        max_len=max_len,
+                        sample_temperature=sample_temperature,
+                        return_weights=return_weights
+                    )
+                else:
+                    x2, len2 = self.decoder.generate(
+                        enc1,
+                        len1,
+                        lang2_id,
+                        max_len=max_len,
+                        sample_temperature=sample_temperature,
+                        return_weights=return_weights
+                    )
             else:
                 x2, len2, _ = self.decoder.generate_beam(
                     enc1,
@@ -240,9 +252,12 @@ class Translator:
 
             # Convert out ids to text
             tok = []
+            tgt_tokens = []
+
             for i in range(x2.shape[1]):
                 wid = [self.dico[x2[j, i].item()] for j in range(len(x2))][1:]
                 wid = wid[: wid.index(EOS_WORD)] if EOS_WORD in wid else wid
+                tgt_tokens.extend(wid)
                 if getattr(self.reloaded_params, "roberta_mode", False):
                     tok.append(restore_roberta_segmentation_sentence(" ".join(wid)))
                 else:
@@ -250,11 +265,36 @@ class Translator:
             if not detokenize:
                 return tok
             results = []
+
             for t in tok:
                 results.append(detokenizer(t))
                 
             if return_weights:
-                return results, weights, tokens
+                tgt_tokens = tgt_tokens + ["</s>"]
+
+                decoder_attention_weights = []
+                cross_attention_weights = []
+
+                num_layers = len(decoder_weights[0])
+                num_tokens = len(decoder_weights)
+                                
+                for i in range(num_layers):
+                    decoder_layer = []
+                    cross_layer = []
+                                
+                    for j in range(num_tokens):
+                        padded_weights = F.pad(decoder_weights[j][i], (0, num_tokens - j - 1), "constant", 0)
+                        decoder_layer.append(padded_weights)
+                        cross_layer.append(cross_weights[j][i])
+                                    
+                    decoder_layer = torch.cat(decoder_layer, 2)
+                    cross_layer = torch.cat(cross_layer, 2)
+                    
+                    decoder_attention_weights.append(decoder_layer)
+                    cross_attention_weights.append(cross_layer)
+
+
+                return results, encoder_attention_weights, decoder_attention_weights, cross_attention_weights, src_tokens, tgt_tokens
             else:
                 return results
 
