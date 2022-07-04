@@ -79,7 +79,7 @@ with torch.no_grad():
         success_1 = 0
         success_2 = 0
         fixed = 0
-        breaked = 0
+        broken = 0
 
         for index, line in enumerate(file):
             function_id = line.split(" | ")[0]
@@ -152,7 +152,7 @@ with torch.no_grad():
             if result_1[0] != "success" and result_2[0] == "success":
                 fixed += 1
             elif result_1[0] == "success" and result_2[0] != "success":
-                breaked += 1
+                broken += 1
 
             print("Result: ", result_1, result_2)
-            print(f"Result: Total ({total}), Executed ({executed}), Skipped ({skipped}), Original ({success_1}), New ({success_2}), Fixed ({fixed}), Breaked ({breaked})")
+            print(f"Result: Total ({total}), Executed ({executed}), Skipped ({skipped}), Original ({success_1}), New ({success_2}), Fixed ({fixed}), Broken ({broken})")
