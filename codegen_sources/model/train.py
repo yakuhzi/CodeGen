@@ -684,6 +684,10 @@ def get_parser():
         "--correct_functions", type=bool_flag, default=False, help="Correct model output with some hardcoded rules"
     )
 
+    parser.add_argument(
+        "--constrained", type=bool_flag, default=False, help="Only consider functions that compile for beam search"
+    )
+
     return parser
 
 

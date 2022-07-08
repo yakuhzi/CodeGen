@@ -5,7 +5,7 @@
 #SBATCH --partition multiple
 #SBATCH --gres=gpu:0
 #SBATCH --job-name=train_data_mlm_transcoder
-#SBATCH --output=train_data_mlm_transcoder_%j.out
+#SBATCH --output=train_data_mlm_transcoder_%j.log
 
 DATASET_PATH=$(ws_find code-gen)/dataset/single
 NGPU=1

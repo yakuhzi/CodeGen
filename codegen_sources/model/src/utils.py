@@ -1089,7 +1089,7 @@ def get_programming_language_name(lang):
         )
 
 
-def has_compile_errors(function: str, tgt_language: str) -> Tuple[str, str]:
+def has_compile_errors(function: str, tgt_language: str) -> bool:
     if tgt_language == "cpp":
         compile_errors = get_cpp_compilation_errors(function)
         return compile_errors != "success" and compile_errors != "timeout"

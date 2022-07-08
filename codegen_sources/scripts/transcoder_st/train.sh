@@ -4,7 +4,7 @@
 #SBATCH --mem=100GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=eval
-#SBATCH --output=eval_transcoder_st_%j.out
+#SBATCH --output=eval_transcoder_st_%j.log
 
 JAVA_FUNC_DATASET='dataset/transcoder_st'
 MODELS_PATH='models/transcoder_st'

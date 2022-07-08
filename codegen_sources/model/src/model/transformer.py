@@ -658,21 +658,35 @@ class TransformerModel(nn.Module):
                             cached_tensor[restricted_mask] for cached_tensor in v
                         )
 
-            tensor, decoder_weights, cross_weights = self.forward(
-                "fwd",
-                x=generated[:cur_len, unfinished_mask],
-                lengths=gen_len[unfinished_mask],
-                positions=positions[:cur_len, unfinished_mask],
-                langs=langs[:cur_len][:, unfinished_mask],
-                causal=True,
-                src_enc=src_enc[unfinished_mask],
-                src_len=src_len[unfinished_mask],
-                use_cache=True,
-                return_weights=return_weights,
-            )
+            if return_weights:
+                tensor, decoder_weights, cross_weights = self.forward(
+                    "fwd",
+                    x=generated[:cur_len, unfinished_mask],
+                    lengths=gen_len[unfinished_mask],
+                    positions=positions[:cur_len, unfinished_mask],
+                    langs=langs[:cur_len][:, unfinished_mask],
+                    causal=True,
+                    src_enc=src_enc[unfinished_mask],
+                    src_len=src_len[unfinished_mask],
+                    use_cache=True,
+                    return_weights=True,
+                )
 
-            decoder_attention_weights.append(decoder_weights)
-            cross_attention_weights.append(cross_weights)
+                decoder_attention_weights.append(decoder_weights)
+                cross_attention_weights.append(cross_weights)
+            else:
+                tensor = self.forward(
+                    "fwd",
+                    x=generated[:cur_len, unfinished_mask],
+                    lengths=gen_len[unfinished_mask],
+                    positions=positions[:cur_len, unfinished_mask],
+                    langs=langs[:cur_len][:, unfinished_mask],
+                    causal=True,
+                    src_enc=src_enc[unfinished_mask],
+                    src_len=src_len[unfinished_mask],
+                    use_cache=True,
+                    return_weights=False,
+                )
 
             assert tensor.size() == (1, unfinished_mask.sum().item(), self.dim), (
                 cur_len,

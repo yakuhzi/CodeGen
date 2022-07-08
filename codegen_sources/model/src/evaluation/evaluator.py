@@ -48,7 +48,7 @@ EVAL_OBF_PROBAS = []
 BLEU_SCRIPT_PATH = os.path.join(
     os.path.abspath(os.path.dirname(__file__)), "multi-bleu.perl"
 )
-EVAL_DATASET_SPLITS = [ds for ds in DATASET_SPLITS if ds != "train"]
+EVAL_DATASET_SPLITS = [ds for ds in DATASET_SPLITS if ds != "train" and ds != "valid"]
 assert os.path.isfile(BLEU_SCRIPT_PATH)
 ROOT_FOLDER = Path(__file__).parents[4]
 EVAL_SCRIPT_FOLDER = {
@@ -309,14 +309,14 @@ class Evaluator(object):
                     params.mt_steps
                     + [(l2, l3) for _, l2, l3 in params.bt_steps]
                     + [(l1, l2) for l1, langs2 in params.st_steps for l2 in langs2]
-                    + [(l2, l1) for l1, langs2 in params.st_steps for l2 in langs2]
-                    + [
-                        (l2_1, l2_2)
-                        for l1, langs2 in params.st_steps
-                        for l2_1 in langs2
-                        for l2_2 in langs2
-                        if l2_1 != l2_2
-                    ]
+                    # + [(l2, l1) for l1, langs2 in params.st_steps for l2 in langs2]
+                    # + [
+                    #     (l2_1, l2_2)
+                    #     for l1, langs2 in params.st_steps
+                    #     for l2_1 in langs2
+                    #     for l2_2 in langs2
+                    #     if l2_1 != l2_2
+                    # ]
                     + params.mt_spans_steps
                 ):
                     spans = None
@@ -334,6 +334,7 @@ class Evaluator(object):
                         params.eval_subtoken_score,
                         spans,
                         correct_functions=params.correct_functions,
+                        constrained=params.constrained,
                     )
                 if self.params.eval_denoising:
                     for lang in set(params.ae_steps):
@@ -348,6 +349,7 @@ class Evaluator(object):
                             eval_subtoken_score=False,
                             span=None,
                             correct_functions=params.correct_functions,
+                            constrained=params.constrained,
                         )
 
                 # machine translation task (evaluate perplexity and accuracy)
@@ -367,6 +369,7 @@ class Evaluator(object):
                         deobfuscate=True,
                         deobfuscate_probas=deobf_probas_to_eval,
                         correct_functions=params.correct_functions,
+                        constrained=params.constrained,
                     )
 
                 # prediction task (evaluate perplexity and accuracy)
@@ -747,6 +750,7 @@ class EncDecEvaluator(Evaluator):
         deobfuscate=False,
         deobfuscate_probas=None,
         correct_functions=False,
+        constrained=False,
     ):
         """
         Evaluate perplexity and next word prediction accuracy.
@@ -978,6 +982,7 @@ class EncDecEvaluator(Evaluator):
                     scores,
                     roberta_mode=params.roberta_mode,
                     correct_functions=correct_functions,
+                    constrained=constrained,
                 )
 
             if (
@@ -999,6 +1004,7 @@ class EncDecEvaluator(Evaluator):
                     roberta_mode=params.roberta_mode,
                     evosuite_functions=True,
                     correct_functions=correct_functions,
+                    constrained=constrained,
                 )
             if eval_subtoken_score and data_set in datasets_for_bleu:
                 subtoken_level_scores = run_subtoken_score(ref_path, hyp_paths)
@@ -1101,6 +1107,7 @@ class EncDecEvaluator(Evaluator):
         roberta_mode=False,
         evosuite_functions=False,
         correct_functions=False,
+        constrained=False,
     ):
         assert self.evosuite_tests_dico is not None or not evosuite_functions
         func_run_stats, func_run_out = eval_function_output(
@@ -1114,8 +1121,10 @@ class EncDecEvaluator(Evaluator):
             roberta_mode,
             evosuite_functions=evosuite_functions,
             evosuite_tests=self.evosuite_tests_dico,
-            correct_functions=correct_functions
+            correct_functions=correct_functions,
+            constrained=constrained
         )
+
         out_paths = []
         success_for_beam_number = [0 for _ in range(len(hypothesis[0]))]
         prefix = "st" if evosuite_functions else ""

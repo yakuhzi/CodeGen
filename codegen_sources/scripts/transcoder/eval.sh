@@ -3,8 +3,8 @@
 #SBATCH --time=1:30:00
 #SBATCH --mem=350GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=transcoder_eval_all_1
-#SBATCH --output=transcoder_eval_all_1_%j.out
+#SBATCH --job-name=eval_all_transcoder
+#SBATCH --output=transcoder_eval_all_1_%j.log
 
 MODEL_PATH='models/transcoder/TransCoder_model_1.pth'
 DUMP_PATH='dump/transcoder/eval/all/model_1'

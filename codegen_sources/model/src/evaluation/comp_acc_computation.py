@@ -21,6 +21,7 @@ from ..utils import (
     MAX_VIRTUAL_MEMORY,
     read_file_lines,
     get_java_bin_path,
+    has_compile_errors,
 )
 
 sys.path.append(str(REPO_ROOT))
@@ -263,6 +264,7 @@ def submit_functions(
     lang_processor = LangProcessor.processors[lang](root_folder=TREE_SITTER_ROOT)
     results_list = []
     i = id.rstrip()
+
     for try_id, f_fill in enumerate(functions_list):
         f = f_fill.rstrip()
         script_model_path = os.path.join(script_folder, f"{lang}/{i}.{EXT[lang]}")
@@ -298,6 +300,8 @@ def submit_functions(
             result, _ = run_pg(script_path, i)
 
             if result[0] == "success":
+                if try_id > 0:
+                    print("Fixed function through constrained beam search", id, try_id, f_fill, ref)
                 results_list.append(result)
                 return results_list, i
             elif retry_mismatching_types and lang in {"cpp", "java"}:
@@ -332,9 +336,8 @@ def submit_functions(
 
             if has_compile_errors(f_fill, tgt_language=lang):
                 results_list.append(("compile_error", i))
-                return results_list, i
-
-            results_list.append(result)
+            else:
+                results_list.append(result)
         else:
             return [return_script_not_found()], i
     return results_list, i
@@ -352,6 +355,7 @@ def eval_function_output(
     evosuite_functions=False,
     evosuite_tests=None,
     correct_functions=False,
+    constrained=False,
 ):
     functions = list(zip(*[read_file_lines(path) for path in hyp_paths]))
     ids = read_file_lines(id_path)
@@ -361,6 +365,24 @@ def eval_function_output(
     lang = lang2.split("_")[0]
     jobs = []
     executor = ProcessPoolExecutor()
+
+    if constrained:
+        for i, beam_functions in enumerate(functions):
+            has_replaced = False
+
+            for j, function in enumerate(beam_functions):
+                if not has_compile_errors(function, tgt_language=lang):
+                    if j > 0:
+                        print("Replaced function", j)
+                    beam_functions = beam_functions[:j + 1]
+                    functions[i] = beam_functions
+                    has_replaced = True
+                    break
+
+            if not has_replaced:
+                beam_functions = (beam_functions[0],)
+                functions[i] = beam_functions
+
     for f, i, r in zip(functions, ids, refs):
         if evosuite_functions:
             jobs.append(

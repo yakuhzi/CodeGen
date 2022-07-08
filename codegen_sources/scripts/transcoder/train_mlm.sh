@@ -4,7 +4,7 @@
 #SBATCH --mem=100GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=train_mlm
-#SBATCH --output=transcoder_train_mlm_%j.out
+#SBATCH --output=transcoder_train_mlm_%j.log
 
 DUMP_PATH='dump/transcoder/train_mlm'
 DATASET_PATH=$(ws_find code-gen)/dataset/test/XLM-syml

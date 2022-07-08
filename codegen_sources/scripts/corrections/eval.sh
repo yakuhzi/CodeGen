@@ -4,7 +4,7 @@
 #SBATCH --mem=350GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=transcoder_eval_all_1
-#SBATCH --output=corrections_eval_all_1_%j.out
+#SBATCH --output=corrections_eval_all_1_%j.log
 
 MODEL_PATH='models/transcoder/TransCoder_model_1.pth'
 DUMP_PATH='dump/transcoder_corrections/eval/all/model_1'

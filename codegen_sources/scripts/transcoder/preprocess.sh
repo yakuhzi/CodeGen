@@ -4,7 +4,7 @@
 #SBATCH --mem=200GB
 #SBATCH --gres=gpu:0
 #SBATCH --job-name=preprocess
-#SBATCH --output=transcoder_preprocess_%j.out
+#SBATCH --output=transcoder_preprocess_%j.log
 
 DATASET_PATH=$(ws_find code-gen)/dataset/all
 MODE='monolingual_functions'

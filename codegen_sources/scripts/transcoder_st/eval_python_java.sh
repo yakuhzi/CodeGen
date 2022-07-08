@@ -3,11 +3,11 @@
 #SBATCH --time=1:30:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=transcoder_st_eval_cpp_java
-#SBATCH --output=corrections_st_eval_cpp_java_%j.log
+#SBATCH --job-name=python_java_transcoder_st
+#SBATCH --output=transcoder_st_python_java_%j.log
 
-MODEL_PATH='models/transcoder_st/Online_ST_CPP_Java.pth'
-DUMP_PATH='dump/transcoder_st_corrections/eval/cpp_java'
+MODEL_PATH='models/transcoder_st/Online_ST_Python_Java.pth'
+DUMP_PATH='dump/transcoder_st/eval/python_java'
 DATASET_PATH='dataset/transcoder/test'
 
 python -m codegen_sources.model.train \
@@ -21,7 +21,7 @@ python -m codegen_sources.model.train \
     --emb_dim 1024 \
     --n_heads 8 \
     --dropout '0.1' \
-    --lgs 'cpp_sa-java_sa' \
+    --lgs 'python_sa-java_sa' \
     --max_vocab 64000 \
     --max_len 512 \
     --reload_model "${MODEL_PATH},${MODEL_PATH}" \
@@ -33,20 +33,19 @@ python -m codegen_sources.model.train \
     --epoch_size 2500 \
     --max_epoch 10000000 \
     --clip_grad_norm 1 \
-    --stopping_criterion 'valid_cpp_sa-java_sa_mt_comp_acc,25' \
-    --validation_metrics 'valid_cpp_sa-java_sa_mt_comp_acc' \
+    --stopping_criterion 'valid_python_sa-java_sa_mt_comp_acc,25' \
+    --validation_metrics 'valid_python_sa-java_sa_mt_comp_acc' \
     --has_sentence_ids 'valid|para,test|para' \
     --eval_bleu true \
     --eval_computation true \
     --generate_hypothesis true \
     --eval_st false \
     --eval_only true \
-    --st_steps 'cpp_sa-java_sa' \
+    --st_steps 'python_sa-java_sa' \
     --st_beam_size 20 \
     --lambda_st 1 \
     --robin_cache false \
     --st_sample_size 200 \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
-    --st_sample_cache_ratio '0.5' \
-    --correct_functions true
+    --st_sample_cache_ratio '0.5'

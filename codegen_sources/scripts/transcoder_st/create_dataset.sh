@@ -4,7 +4,7 @@
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=transcoder_st_create_dataset
-#SBATCH --output=transcoder_st_create_dataset_%j.out
+#SBATCH --output=transcoder_st_create_dataset_%j.log
 
 JAVA_FUNC_DATASET=$(ws_find code-gen)/dataset/java
 MODELS_PATH='models/transcoder_st'
