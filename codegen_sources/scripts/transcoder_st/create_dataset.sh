@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --ntasks=10
-#SBATCH --time=1:30:00
+#SBATCH --ntasks=1
+#SBATCH --time=1:00:00
 #SBATCH --mem=80GB
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:0
 #SBATCH --job-name=transcoder_st_create_dataset
 #SBATCH --output=transcoder_st_create_dataset_%j.log
 
