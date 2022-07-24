@@ -79,7 +79,7 @@ class CppTestRunner(EvosuiteTestRunner):
 
         assert test_path.is_file()
         compilation_cmd = (
-            f"g++ -o {test_path.with_suffix('')} {test_path} -lgtest -pthread "
+            f"export LIBRARY_PATH=~/lib:~/include:/lib:/usr/lib && export LD_LIBRARY_PATH=~/lib:~/include:/lib:/usr/lib && g++ -I/home/hd/hd_hd/hd_tf268/include -o {test_path.with_suffix('')} {test_path} -lgtest -pthread "
         )
         try:
             proc = subprocess.Popen(
@@ -98,7 +98,7 @@ class CppTestRunner(EvosuiteTestRunner):
 
         test_cmd = (
             f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; "
-            f"firejail --profile={FIREJAIL_PROFILE} {test_path.with_suffix('')}"
+            f"export LIBRARY_PATH=~/lib:~/include:/lib:/usr/lib && export LD_LIBRARY_PATH=~/lib:~/include:/lib:/usr/lib && {test_path.with_suffix('')}"
         )
         test_proc = Popen(
             test_cmd,

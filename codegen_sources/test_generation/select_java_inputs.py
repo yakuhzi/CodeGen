@@ -150,8 +150,13 @@ if __name__ == "__main__":
     output_path.mkdir(parents=True, exist_ok=True)
     if args.local is False:
         cluster = AutoExecutor(output_path.joinpath("log"))
-        cluster.update_parameters(cpus_per_task=80, mem_gb=300)
-        cluster.update_parameters(timeout_min=40)
+        cluster.update_parameters(
+            cpus_per_task=5,
+            nodes=2,
+            mem_gb=80,
+            slurm_partition="multiple",
+            timeout_min=40
+        )
     else:
         cluster = None
     tok_files_names = "java.[0-9]*.sa.tok"
@@ -170,7 +175,7 @@ if __name__ == "__main__":
             select_functions_for_file, tok_files, repeat(output_path)
         )
         for j in tqdm(jobs):
-            j.result()
+            j.results()
 
     selected_files = sorted(list(output_path.glob(tok_files_names)))
 

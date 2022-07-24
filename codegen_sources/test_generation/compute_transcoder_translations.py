@@ -105,6 +105,7 @@ def main(args):
     output_folder.mkdir(exist_ok=True, parents=True)
     transcoder_output_folder = "transcoder_outputs"
     output_folder_translations = output_folder.joinpath(transcoder_output_folder)
+    output_folder_translations.mkdir(exist_ok=True, parents=True)
     if args.local is False:
         logger.info("Executing on cluster")
         cluster = AutoExecutor(output_folder_translations.joinpath("log"))

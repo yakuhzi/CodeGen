@@ -80,7 +80,7 @@ def compute_all_tests_results(tests, functions, test_runner, output_path=None):
         for t, fs in zip(tests, functions)
     ]
     res = []
-    for i, job in enumerate(jobs):
+    for i, job in enumerate(tqdm(jobs)):
         res.append(job.result())
         if i % 100 == 0:
             logger.info(f"computed results for {i} tests over {len(tests)}")

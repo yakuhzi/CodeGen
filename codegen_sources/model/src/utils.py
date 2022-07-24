@@ -1118,7 +1118,7 @@ def get_errors(function: str, tgt_language: str) -> Tuple[str, str]:
 
 def get_java_compilation_errors(code, timeout=20):
     file = write_java_function(code)
-    comp_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; {os.path.join(get_java_bin_path(), 'javac --module-path /home/hd/hd_hd/hd_tf268/code-gen/javafx-sdk-11/lib --add-modules javafx.base')} {file}"
+    comp_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; {os.path.join(get_java_bin_path(), 'javac')} --module-path /home/hd/hd_hd/hd_tf268/code-gen/javafx-sdk-11/lib --add-modules javafx.base {file}"
     timed_out = False
     try:
         proc = subprocess.run(

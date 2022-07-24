@@ -59,7 +59,6 @@ def write_javacode_onefunctionperfile(
         classname = f"CLASS_{id_string}"
     else:
         classname = "CLASS_" + functionname.upper() + f"_{line_number}"
-    print(classname)
     filepath = folder.joinpath(classname + ".java")
     writefile = open(filepath, "w")
     writefile.write(
@@ -80,19 +79,25 @@ import javafx.util.Pair;\n
 
 def run_command_compile_java_file(folderpath):
     print(f"compiling files in {folderpath}")
-    files = os.listdir(folderpath)
+    files = [file for file in os.listdir(folderpath) if file.endswith(".java") and not os.path.exists(os.path.join(folderpath, file.replace(".java", ".class")))]
     executor = ThreadPoolExecutor(max_workers=multiprocessing.cpu_count())
     jobs = []
-    for file in files:
-        jobs.append(executor.submit(compile_file, file, folderpath))
-    [j.result() for j in jobs]
+
+    print(f"########## Compiling Java Functions in {folderpath} ##########")
+    with tqdm(total=len(files)) as pbar:
+        for file in files:
+            print(folderpath, file)
+            jobs.append(executor.submit(compile_file, file, folderpath))
+
+        for j in jobs:
+            j.result()
+            pbar.update(1)
 
 
 def compile_file(file, folderpath):
     try:
         proc = subprocess.Popen(
-            f"ulimit -S -v {2 * 1024 * 1024 * 1024}; cd {folderpath} && {os.path.join(get_java_bin_path(), 'javac')} "
-            + file,
+            f"ulimit -S -v {2 * 1024 * 1024 * 1024}; cd {folderpath} && {os.path.join(get_java_bin_path(), 'javac')} --module-path ../../../../../javafx-sdk-11/lib --add-modules javafx.base {file}",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             shell=True,
@@ -103,8 +108,8 @@ def compile_file(file, folderpath):
         return
 
     err = err.decode("utf-8").strip()
-    if len(err) > 0:
-        print(err)
+    # if len(err) > 0:
+    #     print(err)
 
 
 def run_command_test_generation(folderpath):
@@ -116,10 +121,20 @@ def run_command_test_generation(folderpath):
     report_dirs = []
     for file in [f for f in files if f.endswith(".class")]:
         report_name = "es_report_" + file.replace(".class", "")
+
+        if os.path.exists(os.path.join(folderpath, report_name)):
+            continue
+
         report_dirs.append(report_name)
         jobs.append(executor.submit(create_tests, file, folderpath, report_name))
 
-    job_res = [j.result() for j in jobs]
+    job_res = []
+
+    with tqdm(total=len(jobs)) as pbar:
+        for j in jobs:
+            job_res.append(j.result())
+            pbar.update(1)
+
     print(
         f"Percentage of timeouts: {len([j for j in job_res if j == 'timeout'])/len(job_res):.2%}"
     )
@@ -135,7 +150,6 @@ def get_consolidated_report_path(folderpath):
 
 
 def create_tests(file, folderpath, report_name):
-    print(file)
     cmd = (
         f"{os.path.join(get_java_bin_path(), 'java')} -jar {EVOSUITE_JAR_PATH} -class "
         + file.replace(".class", "")
@@ -154,10 +168,9 @@ def create_tests(file, folderpath, report_name):
         f"-Dextra_timeout=180 "
         f"-Dreport_dir={report_name}"
     )
-    print(cmd)
     try:
         return subprocess.call(
-            cmd, shell=True, timeout=1500, cwd=folderpath, executable="/bin/bash"
+            cmd, shell=True, timeout=1500, cwd=folderpath, executable="/bin/bash", stdout=subprocess.DEVNULL,  stderr=subprocess.DEVNULL
         )
     except subprocess.TimeoutExpired:
         return "timeout"

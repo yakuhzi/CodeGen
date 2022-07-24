@@ -24,6 +24,11 @@ logger = create_logger(None, 0)
 def XLM_preprocess(voc_path, txt_path, bin_path):
     assert os.path.isfile(voc_path)
     assert os.path.isfile(txt_path)
+
+    if os.stat(txt_path).st_size == 0:
+        print("EMPTY", txt_path)
+        return
+
     dico = Dictionary.read_vocab(voc_path)
     logger.info("")
     data = Dictionary.index_data(txt_path, bin_path, dico)

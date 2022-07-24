@@ -177,12 +177,13 @@ def get_first_success(test_results, language):
         [test_results[col] for col in translations_columns]
     ).transpose()
     logger.info("getting the first successful function")
-    tests_results = np.array(
+    results = np.array(
         [test_results[col] for col in test_results_columns]
-    ).transpose((1, 0, 2))
+    )
+    results = results.transpose()
     code = []
     min_successful_len = float("inf")
-    for translations_i, result_i in zip(translations, tests_results):
+    for translations_i, result_i in zip(translations, results):
         any_successful = False
         for translated_code, res in zip(translations_i, result_i):
             if res[0] == "success":

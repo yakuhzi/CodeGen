@@ -70,7 +70,7 @@ class PythonTestRunner(EvosuiteTestRunner):
 
         assert test_path.is_file()
 
-        test_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; firejail --profile={FIREJAIL_PROFILE} python {test_path}"
+        test_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; python {test_path}"
         test_proc = Popen(
             test_cmd,
             stdout=subprocess.PIPE,
