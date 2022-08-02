@@ -334,6 +334,7 @@ class Evaluator(object):
                         params.eval_subtoken_score,
                         spans,
                         correct_functions=params.correct_functions,
+                        use_knn_store=params.use_knn_store,
                         constrained=params.constrained,
                     )
                 if self.params.eval_denoising:
@@ -349,6 +350,7 @@ class Evaluator(object):
                             eval_subtoken_score=False,
                             span=None,
                             correct_functions=params.correct_functions,
+                            use_knn_store=params.use_knn_store,
                             constrained=params.constrained,
                         )
 
@@ -369,6 +371,7 @@ class Evaluator(object):
                         deobfuscate=True,
                         deobfuscate_probas=deobf_probas_to_eval,
                         correct_functions=params.correct_functions,
+                        use_knn_store=params.use_knn_store,
                         constrained=params.constrained,
                     )
 
@@ -751,6 +754,7 @@ class EncDecEvaluator(Evaluator):
         deobfuscate_probas=None,
         correct_functions=False,
         constrained=False,
+        use_knn_store=False,
     ):
         """
         Evaluate perplexity and next word prediction accuracy.
@@ -891,6 +895,7 @@ class EncDecEvaluator(Evaluator):
                                     params.number_samples, dim=0
                                 ),
                                 sample_temperature=params.eval_temperature,
+                                use_knn_store=use_knn_store,
                             )
                             generated = generated.T.reshape(
                                 -1, params.number_samples, generated.shape[0]
@@ -900,7 +905,7 @@ class EncDecEvaluator(Evaluator):
                             )
                         else:
                             generated, lengths = decoder.generate(
-                                enc1, len1, lang2_id, max_len=len_v
+                                enc1, len1, lang2_id, max_len=len_v, use_knn_store=use_knn_store
                             )
                         # print(f'path 1: {generated.shape}')
 
@@ -914,6 +919,7 @@ class EncDecEvaluator(Evaluator):
                             length_penalty=params.length_penalty,
                             early_stopping=params.early_stopping,
                             max_len=len_v,
+                            use_knn_store=use_knn_store
                         )
                         # print(f'path 2: {generated.shape}')
                     if i == 0:

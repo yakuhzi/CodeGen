@@ -591,6 +591,7 @@ class TransformerModel(nn.Module):
         return_weights=False,
         return_features=False,
         targets=None,
+        use_knn_store=False,
         predict_single_token=False,
     ):
         """

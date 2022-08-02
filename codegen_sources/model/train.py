@@ -688,6 +688,10 @@ def get_parser():
         "--constrained", type=bool_flag, default=False, help="Only consider functions that compile for beam search"
     )
 
+    parser.add_argument(
+        "--use_knn_store", type=bool_flag, default=False, help="Use KNN Machine Translation"
+    )
+
     return parser
 
 

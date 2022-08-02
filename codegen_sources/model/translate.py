@@ -185,6 +185,7 @@ class Translator:
                 return_weights=False,
                 return_features=True,
                 targets=targets,
+                use_knn_store=False,
                 predict_single_token=predict_single_token,
             )
 
@@ -214,6 +215,7 @@ class Translator:
         max_tokens=None,
         length_penalty=0.5,
         max_len=None,
+        use_knn_store=False,
         return_weights=False,
     ):
 
@@ -303,6 +305,7 @@ class Translator:
                         lang2_id,
                         max_len=max_len,
                         sample_temperature=sample_temperature,
+                        use_knn_store=use_knn_store,
                         return_weights=return_weights,
                     )
                 else:
@@ -312,6 +315,7 @@ class Translator:
                         lang2_id,
                         max_len=max_len,
                         sample_temperature=sample_temperature,
+                        use_knn_store=use_knn_store,
                         return_weights=return_weights,
                     )
             else:
@@ -323,6 +327,7 @@ class Translator:
                     early_stopping=False,
                     length_penalty=length_penalty,
                     beam_size=beam_size,
+                    use_knn_store=use_knn_store,
                 )
 
             # Convert out ids to text
