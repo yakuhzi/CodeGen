@@ -14,14 +14,13 @@ import os
 import argparse
 from pathlib import Path
 import sys
+from typing import Optional
 import torch
 import torch.nn.functional as F
 from codegen_sources.model.src.logger import create_logger
 from codegen_sources.preprocessing.lang_processors.cpp_processor import CppProcessor
 from codegen_sources.preprocessing.lang_processors.java_processor import JavaProcessor
-from codegen_sources.preprocessing.lang_processors.python_processor import (
-    PythonProcessor,
-)
+from codegen_sources.preprocessing.lang_processors.python_processor import PythonProcessor
 from codegen_sources.preprocessing.lang_processors.lang_processor import LangProcessor
 from codegen_sources.preprocessing.bpe_modes.fast_bpe_mode import FastBPEMode
 from codegen_sources.preprocessing.bpe_modes.roberta_bpe_mode import RobertaBPEMode
@@ -33,7 +32,7 @@ from codegen_sources.model.src.data.dictionary import (
     UNK_WORD,
     MASK_WORD,
 )
-from codegen_sources.model.src.utils import restore_roberta_segmentation_sentence
+from codegen_sources.model.src.utils import restore_roberta_segmentation_sentence, to_cuda
 from codegen_sources.model.src.model import build_model
 from codegen_sources.model.src.utils import AttrDict, TREE_SITTER_ROOT
 
@@ -85,7 +84,7 @@ def get_parser():
 
 
 class Translator:
-    def __init__(self, model_path, BPE_path):
+    def __init__(self, model_path, BPE_path, global_model: bool = False):
         # reload model
         reloaded = torch.load(model_path, map_location="cpu")
         # change params of the reloaded model so that it will
@@ -119,9 +118,85 @@ class Translator:
         if getattr(self.reloaded_params, "roberta_mode", False):
             self.bpe_model = RobertaBPEMode()
         else:
-            self.bpe_model = FastBPEMode(
-                codes=os.path.abspath(BPE_path), vocab_path=None
+            self.bpe_model = FastBPEMode(codes=os.path.abspath(BPE_path), vocab_path=None, global_model=global_model)
+
+    def get_token(self, id): 
+        return self.dico[id]
+
+    def get_features(
+        self, 
+        input_code: str, 
+        target_code: Optional[str], 
+        src_language: str, 
+        tgt_language: str, 
+        predict_single_token: bool=False
+    ):
+        device = "cuda:0"
+        lang1 = src_language + "_sa"
+        lang2 = tgt_language + "_sa"
+
+        with torch.no_grad():
+            lang1_id = self.reloaded_params.lang2id[lang1]
+            lang2_id = self.reloaded_params.lang2id[lang2]
+
+            # Get source tokens
+            src_tokens = input_code.strip().split()
+            src_tokens = self.bpe_model.apply_bpe(" ".join(src_tokens)).split()
+            src_tokens = ["</s>"] + src_tokens + ["</s>"]
+            input_code = " ".join(src_tokens)
+
+            # Encode source tokens
+            len1 = len(input_code.split())
+            len1 = torch.LongTensor(1).fill_(len1).to(device)
+            x1 = torch.LongTensor([self.dico.index(w) for w in input_code.split()]).to(device)[:, None]
+
+            langs1 = x1.clone().fill_(lang1_id)
+            max_len = int(min(self.reloaded_params.max_len, 3 * len1.max().item() + 10))
+            x1, len1, langs1 = to_cuda(x1, len1, langs1)
+
+            # Encode
+            enc_res = self.encoder("fwd", x=x1, lengths=len1, langs=langs1, causal=False, return_weights=False)
+            enc1 = enc_res.transpose(0, 1)
+
+            # Get target tokens
+            tgt_tokens = target_code.strip().split()
+            tgt_tokens = self.bpe_model.apply_bpe(" ".join(tgt_tokens)).split()
+
+            tgt_tokens = ["</s>"] + tgt_tokens
+
+            if not predict_single_token:
+                tgt_tokens += ["</s>"]
+
+            output_code = " ".join(tgt_tokens)
+
+            # Encode target tokens
+            len2 = len(output_code.split())
+            len2 = torch.LongTensor(1).fill_(len2).to(device)
+            x2 = torch.LongTensor([self.dico.index(w) for w in output_code.split()]).to(device)[:, None]
+            targets, len2 = to_cuda(x2, len2)
+
+            # Decode
+            x2, len2, features = self.decoder.generate(
+                enc1,
+                len1,
+                lang2_id,
+                max_len=max_len,
+                sample_temperature=None,
+                return_weights=False,
+                return_features=True,
+                targets=targets,
+                predict_single_token=predict_single_token,
             )
+
+            # Convert out ids to text
+            target_tokens = []
+
+            for i in range(x2.shape[1]):
+                wid = [self.dico[x2[j, i].item()] for j in range(len(x2))]
+                target_tokens.extend(wid)
+
+            targets = x2.squeeze()
+            return features, targets, target_tokens
 
     def translate(
         self,
@@ -139,7 +214,7 @@ class Translator:
         max_tokens=None,
         length_penalty=0.5,
         max_len=None,
-        return_weights=False
+        return_weights=False,
     ):
 
         # Build language processors
@@ -177,7 +252,7 @@ class Translator:
             print(f"Tokenized {lang1} function:")
             print(src_tokens)
             src_tokens = self.bpe_model.apply_bpe(" ".join(src_tokens)).split()
-            src_tokens = ["<s>"] + src_tokens + ["</s>"]
+            src_tokens = ["</s>"] + src_tokens + ["</s>"]
             input_code = " ".join(src_tokens)
             if max_tokens is not None and len(input_code.split()) > max_tokens:
                 logger.info(
@@ -204,12 +279,12 @@ class Translator:
                 causal=False, 
                 return_weights=return_weights
             )
-            
+
             if return_weights:
                 enc1, encoder_attention_weights = enc_res
             else:
                 enc1 = enc_res
-            
+
             enc1 = enc1.transpose(0, 1)
             if n > 1:
                 enc1 = enc1.repeat(n, 1, 1)
@@ -228,7 +303,7 @@ class Translator:
                         lang2_id,
                         max_len=max_len,
                         sample_temperature=sample_temperature,
-                        return_weights=return_weights
+                        return_weights=return_weights,
                     )
                 else:
                     x2, len2 = self.decoder.generate(
@@ -237,7 +312,7 @@ class Translator:
                         lang2_id,
                         max_len=max_len,
                         sample_temperature=sample_temperature,
-                        return_weights=return_weights
+                        return_weights=return_weights,
                     )
             else:
                 x2, len2, _ = self.decoder.generate_beam(
@@ -268,7 +343,7 @@ class Translator:
 
             for t in tok:
                 results.append(detokenizer(t))
-                
+
             if return_weights:
                 tgt_tokens = tgt_tokens + ["</s>"]
 
@@ -277,24 +352,30 @@ class Translator:
 
                 num_layers = len(decoder_weights[0])
                 num_tokens = len(decoder_weights)
-                                
+
                 for i in range(num_layers):
                     decoder_layer = []
                     cross_layer = []
-                                
+
                     for j in range(num_tokens):
                         padded_weights = F.pad(decoder_weights[j][i], (0, num_tokens - j - 1), "constant", 0)
                         decoder_layer.append(padded_weights)
                         cross_layer.append(cross_weights[j][i])
-                                    
+
                     decoder_layer = torch.cat(decoder_layer, 2)
                     cross_layer = torch.cat(cross_layer, 2)
-                    
+
                     decoder_attention_weights.append(decoder_layer)
                     cross_attention_weights.append(cross_layer)
 
-
-                return results, encoder_attention_weights, decoder_attention_weights, cross_attention_weights, src_tokens, tgt_tokens
+                return (
+                    results,
+                    encoder_attention_weights,
+                    decoder_attention_weights,
+                    cross_attention_weights,
+                    src_tokens,
+                    tgt_tokens,
+                )
             else:
                 return results
 

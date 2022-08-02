@@ -449,7 +449,7 @@ class TransformerModel(nn.Module):
         langs=None,
         use_cache=False,
         spans=None,
-        return_weights=False
+        return_weights=False,
     ):
         """
         Inputs:
@@ -520,7 +520,7 @@ class TransformerModel(nn.Module):
         tensor = self.layer_norm_emb(tensor)
         tensor = F.dropout(tensor, p=self.dropout, training=self.training)
         tensor *= mask.unsqueeze(-1).to(tensor.dtype)
-        
+
         self_attention_weights = []
         cross_attention_weights = []
 
@@ -582,7 +582,16 @@ class TransformerModel(nn.Module):
         return scores, loss
 
     def generate(
-        self, src_enc, src_len, tgt_lang_id, max_len=200, sample_temperature=None, return_weights=False
+        self,
+        src_enc,
+        src_len,
+        tgt_lang_id,
+        max_len=200,
+        sample_temperature=None,
+        return_weights=False,
+        return_features=False,
+        targets=None,
+        predict_single_token=False,
     ):
         """
         Decode a sentence given initial start.
@@ -632,7 +641,9 @@ class TransformerModel(nn.Module):
         langs = langs.unsqueeze(1).expand(global_max_len, bs)
 
         # current position / max lengths / length of generated sentences / unfinished sentences
+
         cur_len = 1
+
         gen_len = src_len.clone().fill_(1)
         unfinished_sents = src_len.clone().fill_(1)
 
@@ -642,6 +653,7 @@ class TransformerModel(nn.Module):
 
         decoder_attention_weights = []
         cross_attention_weights = []
+        features = []
 
         while cur_len < global_max_len:
             # compute word scores
@@ -675,9 +687,14 @@ class TransformerModel(nn.Module):
                 decoder_attention_weights.append(decoder_weights)
                 cross_attention_weights.append(cross_weights)
             else:
+                if targets is not None:
+                    x = targets[:cur_len, unfinished_mask]
+                else:
+                    x = generated[:cur_len, unfinished_mask]
+
                 tensor = self.forward(
                     "fwd",
-                    x=generated[:cur_len, unfinished_mask],
+                    x=x,
                     lengths=gen_len[unfinished_mask],
                     positions=positions[:cur_len, unfinished_mask],
                     langs=langs[:cur_len][:, unfinished_mask],
@@ -696,10 +713,13 @@ class TransformerModel(nn.Module):
                 (1, bs, self.dim),
             )
             tensor = tensor.data[-1, :, :].type_as(src_enc)  # (bs, dim)
+            features.append(tensor.squeeze())
             scores = self.pred_layer.get_scores(tensor)  # (bs, n_words)
 
             # select next words: sample or greedy
-            if sample_temperature is None:
+            if targets is not None and not (predict_single_token and cur_len == len(targets)):
+                next_words = targets[cur_len]
+            elif sample_temperature is None:
                 next_words = torch.topk(scores, 1)[1].squeeze(1)
             else:
                 next_words = torch.multinomial(
@@ -724,15 +744,19 @@ class TransformerModel(nn.Module):
             cur_len = cur_len + 1
 
             previous_unfinished_mask = unfinished_mask
+
             # stop when there is a </s> in each sentence, or if we exceed the maximal length
-            if unfinished_sents.max() == 0:
+            if unfinished_sents.max() == 0 (predict_single_token and cur_len > len(targets)):
                 break
 
         # sanity check
-        assert (generated == self.eos_index).sum() == 2 * bs
+        if not predict_single_token:
+            assert (generated == self.eos_index).sum() == 2 * bs
 
         if return_weights:
             return generated[:cur_len], gen_len, decoder_attention_weights, cross_attention_weights
+        elif return_features:
+            return generated[:cur_len], gen_len, features
         else:
             return generated[:cur_len], gen_len
 

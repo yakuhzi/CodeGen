@@ -3,8 +3,8 @@ conda activate code-gen
 conda config --add channels conda-forge
 conda config --add channels pytorch
 
-conda install pytorch torchvision torchaudio cudatoolkit=11.0 six scikit-learn stringcase transformers ply slimit astunparse submitit
-pip install cython
+conda install pytorch torchvision torchaudio cudatoolkit=11.0 six scikit-learn stringcase ply slimit astunparse submitit
+pip install transformers cython
 cd codegen_sources/model/tools
 git clone https://github.com/glample/fastBPE.git
 
@@ -31,6 +31,4 @@ cd ..
 
 pip install sacrebleu=="1.2.11" javalang tree_sitter psutil fastBPE
 pip install hydra-core --upgrade --pre
-pip install black==19.10b0
-pip install pylint
-pip install pandas
+pip install black==19.10b0 pylint pandas faiss-gpu tdqm
