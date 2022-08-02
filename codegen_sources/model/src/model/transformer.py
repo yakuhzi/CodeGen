@@ -746,7 +746,7 @@ class TransformerModel(nn.Module):
             previous_unfinished_mask = unfinished_mask
 
             # stop when there is a </s> in each sentence, or if we exceed the maximal length
-            if unfinished_sents.max() == 0 (predict_single_token and cur_len > len(targets)):
+            if unfinished_sents.max() == 0 or (predict_single_token and cur_len > len(targets)):
                 break
 
         # sanity check

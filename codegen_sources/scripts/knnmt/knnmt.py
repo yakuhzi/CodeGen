@@ -190,8 +190,8 @@ def get_sample():
     features, targets, target_tokens = translator.get_features(
         input_code=source, 
         target_code=generated, 
-        src_lang=src_language, 
-        tgt_lang=tgt_language, 
+        src_language=src_language, 
+        tgt_language=tgt_language, 
         predict_single_token=True
     )
 
