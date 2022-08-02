@@ -80,6 +80,10 @@ def get_parser():
         "--input", type=str, default=None, help="input path",
     )
 
+    parser.add_argument(
+        "--use_knn_store", type=str, default=None, help="Use KNN machine translation",
+    )
+
     return parser
 
 
@@ -425,6 +429,7 @@ if __name__ == "__main__":
             lang1=params.src_lang,
             lang2=params.tgt_lang,
             beam_size=params.beam_size,
+            use_knn_store=params.use_knn_store
         )
 
     print(f"Translated {params.tgt_lang} function:")
