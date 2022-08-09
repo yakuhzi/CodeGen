@@ -65,7 +65,11 @@ print("=" * 100)
 
 with torch.no_grad():
     translator_path = f"models/transcoder_st/Online_ST_{SRC_LANGUAGE.title()}_{TGT_LANGUAGE.title()}.pth"
-    translator = Translator(translator_path.replace("Cpp", "CPP"), 'data/bpe/cpp-java-python/codes')
+    translator = Translator(
+        translator_path.replace("Cpp", "CPP"), 
+        'data/bpe/cpp-java-python/codes', 
+        use_knn_store=USE_KNN_STORE
+    )
 
     if not os.path.exists(FILLED_OUT_DIR):
         os.makedirs(FILLED_OUT_DIR)

@@ -1,144 +1,78 @@
 import os
-import faiss
-from tqdm import tqdm
 import numpy as np
+import faiss
 
-from ...model.translate import Translator
-
-LANGUAGE_PAIRS = [
-    "cpp_java",
-    "cpp_python",
-    "java_cpp",
-    "java_python",
-    "python_cpp",
-    "python_java",
-]
-
-DATASET_PATH = "dump/transcoder_st/dataset_01/offline_dataset"
 DATASTORE_PATH = "dump/transcoder_st_knnmt/datastore"
 FAISS_INDEX_PATH = "dump/transcoder_st_knnmt/faiss"
-TREE_SITTER_ROOT = "tree-sitter"
 EMBEDDING_DIMENSION = 1024
-CLUSTERS = 4096
-CODE_SIZE = 64
+# CLUSTERS = 4096
+CLUSTERS = 512
 PROBE = 32
+CODE_SIZE = 64
 SEED = 1
-NUM_KEYS_PER_ITERATION = 500000
 
 
-def create_datastore():
-    cpp_java_cpp_file = open(f"{DATASET_PATH}/train.cpp_sa-java_sa.cpp_sa.bpe", "r")
-    cpp_java_cpp_functions = cpp_java_cpp_file.readlines()
+class KNNMT:
 
-    cpp_java_java_file = open(f"{DATASET_PATH}/train.cpp_sa-java_sa.java_sa.bpe", "r")
-    cpp_java_java_functions = cpp_java_java_file.readlines()
+    def __init__(self):
+        self.faiss_index = {}
+        self.datastore_keys = {}
+        self.datastore_values = {}
+        self.new_examples = []
 
-    cpp_python_cpp_file = open(f"{DATASET_PATH}/train.cpp_sa-python_sa.cpp_sa.bpe", "r")
-    cpp_python_cpp_functions = cpp_python_cpp_file.readlines()
 
-    cpp_python_python_file = open(f"{DATASET_PATH}/train.cpp_sa-python_sa.python_sa.bpe", "r")
-    cpp_python_python_functions = cpp_python_python_file.readlines()
-
-    java_python_java_file = open(f"{DATASET_PATH}/train.java_sa-python_sa.java_sa.bpe", "r")
-    java_python_java_functions = java_python_java_file.readlines()
-
-    java_python_python_file = open(f"{DATASET_PATH}/train.java_sa-python_sa.python_sa.bpe", "r")
-    java_python_python_functions = java_python_python_file.readlines()
-
-    parallel_functions = {}
-    parallel_functions["cpp_java"] = zip(cpp_java_cpp_functions, cpp_java_java_functions)
-    parallel_functions["cpp_python"] = zip(cpp_python_cpp_functions, cpp_python_python_functions)
-    parallel_functions["java_cpp"] = zip(cpp_java_java_functions, cpp_java_cpp_functions)
-    parallel_functions["java_python"] = zip(java_python_java_functions, java_python_python_functions)
-    parallel_functions["python_cpp"] = zip(cpp_python_python_functions, cpp_python_cpp_functions)
-    parallel_functions["python_java"] = zip(java_python_python_functions, java_python_java_functions)
-
-    for language_pair in LANGUAGE_PAIRS:
-        print("#" * 10 + f" Creating Datastore for '{language_pair}' " + "#" * 10)
-
-        keys_path = f"{DATASTORE_PATH}/keys_{language_pair}.npy"
-        values_path = f"{DATASTORE_PATH}/values_{language_pair}.npy"
-
-        src_language = language_pair.split("_")[0]
-        tgt_language = language_pair.split("_")[1]
-
-        translator_path = f"models/transcoder_st/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
-        translator = Translator(
-            translator_path.replace("Cpp", "CPP"), "data/bpe/cpp-java-python/codes", global_model=True
-        )
-
+    def add_to_datastore(self, decoder_features, targets, language_pair: str):
         keys = []
         values = []
 
-        # src = "int mult ( int x , int y ) { return x * y ; }"
-        # tgt = "public static int mult ( int x , int y ) { return x * y ; }"
-
-        # Obtain features and targets from decoder
-        # for i in range(10):
-        for src_sample, tgt_sample in tqdm([(src, tgt)]):
-            decoder_features, targets, target_tokens = translator.get_features(
-                input_code=src_sample, target_code=tgt_sample, src_lang=src_language, tgt_lang=tgt_language,
-            )
-
-            for features, target, token in zip(decoder_features, targets[1:], target_tokens[1:]):
-                keys.append(features.detach().cpu().numpy().astype(np.float32))
-                values.append(target.cpu().numpy().astype(np.int))
+        for features, target in zip(decoder_features, targets[1:]):
+            key = features.detach().cpu().numpy().astype(np.float32)
+            keys.append(key)
+            self.new_examples.append(key)
+            values.append(target.cpu().numpy().astype(np.int))
 
         keys = np.array(keys, dtype=np.float32)
         values = np.array(values, dtype=np.int)
 
-        # Load keys datastore
-        if os.path.exists(keys_path):
-            datastore_keys = np.load(keys_path)
-            print("keys1", datastore_keys.shape)
-            datastore_keys = np.concatenate((datastore_keys, keys), axis=0)
-        else:
-            os.makedirs(os.path.dirname(keys_path), exist_ok=True)
-            datastore_keys = keys
+        datastore_keys = self._load_keys(language_pair)
+        datastore_values = self._load_values(language_pair)
 
-        # Load values datastore
-        if os.path.exists(values_path):
-            datastore_values = np.load(values_path)
-            print("vals1", datastore_values.shape)
-            datastore_values = np.concatenate((datastore_values, values), axis=0)
-        else:
-            os.makedirs(os.path.dirname(values_path), exist_ok=True)
-            datastore_values = values
+        self.datastore_keys[language_pair] = np.concatenate((datastore_keys, keys), axis=0)
+        self.datastore_values[language_pair] = np.concatenate((datastore_values, values), axis=0)
 
-        print("keys2", datastore_keys.shape)
-        print("vals2", datastore_values.shape)
 
+    def save_datastore(self, language_pair: str):
+        print(f"Saving Datastore for '{language_pair}'")
+
+        keys_path = f"{DATASTORE_PATH}/keys_{language_pair}.npy"
+        values_path = f"{DATASTORE_PATH}/values_{language_pair}.npy"
+
+        os.makedirs(os.path.dirname(keys_path), exist_ok=True)
+        os.makedirs(os.path.dirname(values_path), exist_ok=True)
+
+        datastore_keys = self.datastore_keys[language_pair]
+        datastore_values = self.datastore_values[language_pair]
+        
         # Save datastore
         np.save(keys_path, datastore_keys)
         np.save(values_path, datastore_values)
 
+        
+    def train_datastore(self, language_pair):
+        print(f"Training Datastore for '{language_pair}'")
 
-def train_datastore():
-    # Initialize faiss index
-    resources = faiss.StandardGpuResources()
-    options = faiss.GpuClonerOptions()
-    options.useFloat16 = True
+        # Initialize faiss index
+        resources = faiss.StandardGpuResources()
+        options = faiss.GpuClonerOptions()
+        options.useFloat16 = True
 
-    for language_pair in LANGUAGE_PAIRS:
         # Load keys and values from datastore
-        keys_path = f"{DATASTORE_PATH}/keys_{language_pair}.npy"
-        values_path = f"{DATASTORE_PATH}/values_{language_pair}.npy"
-
-        keys = np.load(keys_path)
-        values = np.load(values_path)
-
-        print("SIZEEEK", len(keys), keys.shape)
-        print("SIZEEE", len(values), values.shape)
+        keys = self._load_keys(language_pair)
+        values = self._load_values(language_pair)
+        print(keys.shape)
 
         # Initialize faiss
-        quantizer = faiss.IndexFlatL2(EMBEDDING_DIMENSION)
-
-        CLUSTERS = 10
-        PROBE = 2
-
-        index = faiss.IndexIVFPQ(quantizer, EMBEDDING_DIMENSION, CLUSTERS, CODE_SIZE, 8)
-        index.nprobe = PROBE
-        gpu_index = faiss.index_cpu_to_gpu(resources, 0, index, options)
+        gpu_index = self._load_faiss_index(language_pair, retrain=True)
 
         # Training faiss index
         print("#" * 10 + f" Training Index for '{language_pair}' " + "#" * 10)
@@ -161,60 +95,70 @@ def train_datastore():
         faiss.write_index(faiss.index_gpu_to_cpu(gpu_index), faiss_path)
 
 
-def get_k_nearest_neighbors(input, src_language: str, tgt_language: str, k: int = 5):
-    language_pair = f"{src_language}_{tgt_language}"
-    faiss_path = f"{FAISS_INDEX_PATH}/{language_pair}.faiss"
+    def get_k_nearest_neighbors(self, features, language_pair: str, k: int = 5):
+        faiss_index = self._load_faiss_index(language_pair)
+        datastore_values = self._load_values(language_pair)
 
-    index = faiss.read_index(faiss_path, faiss.IO_FLAG_ONDISK_SAME_DIR)
-    resources = faiss.StandardGpuResources()
-    options = faiss.GpuClonerOptions()
-    options.useFloat16 = True
+        input = np.zeros((1, 1024)).astype('float32')
+        input[0] = features.cpu()
 
-    index = faiss.index_cpu_to_gpu(resources, 0, index, options)
-    distances, knns = index.search(input, k)
-    return knns, distances
+        distances, knns = faiss_index.search(input, k)
 
-def get_sample():
-    src_language = "cpp"
-    tgt_language = "java"
-    language_pair = f"{src_language}_{tgt_language}"
+        values = [datastore_values[index] for index in knns[0]]
+        distances = distances[0]
+        return values, distances
 
-    source = "int mult ( int x , int y ) { return x * y ; }"
-    generated = "public static int mult ( int x , int y ) { return x *"
 
-    translator_path = f"models/transcoder_st/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
-    translator = Translator(
-        translator_path.replace("Cpp", "CPP"), "data/bpe/cpp-java-python/codes", global_model=True
-    )
+    def _load_keys(self, language_pair: str):
+        keys_path = f"{DATASTORE_PATH}/keys_{language_pair}.npy"
 
-    features, targets, target_tokens = translator.get_features(
-        input_code=source, 
-        target_code=generated, 
-        src_language=src_language, 
-        tgt_language=tgt_language, 
-        predict_single_token=True
-    )
+        if self.datastore_keys.get(language_pair) is not None:
+            return self.datastore_keys[language_pair]
 
-    query = np.zeros((1, 1024)).astype('float32')
-    query[0] = features[-1].cpu()
+        if os.path.exists(keys_path):
+            print(f"Loading Datastore Keys for '{language_pair}'")
+            datastore_keys = np.load(keys_path)
+            self.datastore_keys[language_pair] = datastore_keys
+        else:
+            datastore_keys = np.zeros((0, 1024)).astype('float32')
 
-    knns, distances = get_k_nearest_neighbors(query, src_language="cpp", tgt_language="java")
-    values_path = f"{DATASTORE_PATH}/values_{language_pair}.npy"
-    datastore_values = np.load(values_path)
+        return datastore_keys
 
-    values = [datastore_values[index] for index in knns[0]]
-    tokens = get_tokens(values)
-    print("T", targets, target_tokens)
-    print("P", values, tokens)
 
-def get_tokens(ids, src_language="cpp", tgt_language="java"):
-    translator_path = f"models/transcoder_st/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
-    translator = Translator(
-        translator_path.replace("Cpp", "CPP"), "data/bpe/cpp-java-python/codes", global_model=True
-    )
+    def _load_values(self, language_pair: str):
+        values_path = f"{DATASTORE_PATH}/values_{language_pair}.npy"
 
-    return [translator.get_token(id) for id in ids]
+        if self.datastore_values.get(language_pair) is not None:
+            return self.datastore_values[language_pair]
 
-# create_datastore()
-# train_datastore()
-get_sample()
+        if os.path.exists(values_path):
+            print(f"Loading Datastore Values for '{language_pair}'")
+            datastore_values = np.load(values_path)
+            self.datastore_values[language_pair] = datastore_values
+        else:
+            datastore_values = np.zeros((0, )).astype('int')
+
+        return datastore_values
+
+
+    def _load_faiss_index(self, language_pair: str, retrain: bool=False):
+        if not retrain and self.faiss_index.get(language_pair) is not None:
+            return self.faiss_index[language_pair]
+
+        faiss_path = f"{FAISS_INDEX_PATH}/{language_pair}.faiss"
+
+        if not retrain and os.path.exists(faiss_path):
+            print(f"Loading Faiss Index for '{language_pair}'")
+            index = faiss.read_index(faiss_path, faiss.IO_FLAG_ONDISK_SAME_DIR)
+        else:
+            quantizer = faiss.IndexFlatL2(EMBEDDING_DIMENSION)
+            index = faiss.IndexIVFPQ(quantizer, EMBEDDING_DIMENSION, CLUSTERS, CODE_SIZE, 8)
+            index.nprobe = PROBE
+
+        resources = faiss.StandardGpuResources()
+        options = faiss.GpuClonerOptions()
+        options.useFloat16 = True
+            
+        gpu_index = faiss.index_cpu_to_gpu(resources, 0, index, options)
+        self.faiss_index[language_pair] = gpu_index
+        return gpu_index

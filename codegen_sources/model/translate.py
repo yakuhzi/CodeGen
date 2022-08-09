@@ -88,7 +88,7 @@ def get_parser():
 
 
 class Translator:
-    def __init__(self, model_path, BPE_path, global_model: bool = False):
+    def __init__(self, model_path, BPE_path, global_model: bool = False, use_knn_store: bool=False):
         # reload model
         reloaded = torch.load(model_path, map_location="cpu")
         # change params of the reloaded model so that it will
@@ -109,8 +109,10 @@ class Translator:
         assert self.reloaded_params.unk_index == self.dico.index(UNK_WORD)
         assert self.reloaded_params.mask_index == self.dico.index(MASK_WORD)
 
+        self.use_knn_store = use_knn_store
+
         # build model / reload weights (in the build_model method)
-        encoder, decoder = build_model(self.reloaded_params, self.dico)
+        encoder, decoder = build_model(self.reloaded_params, self.dico, use_knn_store=use_knn_store)
         self.encoder = encoder[0]
         self.decoder = decoder[0]
         self.encoder.cuda()
@@ -127,32 +129,48 @@ class Translator:
     def get_token(self, id): 
         return self.dico[id]
 
+    def tokenize(self, input: str, src_language):
+        src_lang_processor = LangProcessor.processors[src_language](root_folder=TREE_SITTER_ROOT)
+        tokenizer = src_lang_processor.tokenize_code
+        tokens = [t for t in tokenizer(input)]
+        tokens = self.bpe_model.apply_bpe(" ".join(tokens)).split()
+        return " ".join(tokens)
+
     def get_features(
         self, 
         input_code: str, 
         target_code: Optional[str], 
         src_language: str, 
         tgt_language: str, 
-        predict_single_token: bool=False
+        predict_single_token: bool=False,
+        tokenized: bool=False
     ):
-        device = "cuda:0"
         lang1 = src_language + "_sa"
         lang2 = tgt_language + "_sa"
+
+        src_lang_processor = LangProcessor.processors[src_language](root_folder=TREE_SITTER_ROOT)
+        tgt_lang_processor = LangProcessor.processors[tgt_language](root_folder=TREE_SITTER_ROOT)
+        src_tokenizer = src_lang_processor.tokenize_code
+        tgt_tokenizer = tgt_lang_processor.tokenize_code
 
         with torch.no_grad():
             lang1_id = self.reloaded_params.lang2id[lang1]
             lang2_id = self.reloaded_params.lang2id[lang2]
 
             # Get source tokens
-            src_tokens = input_code.strip().split()
-            src_tokens = self.bpe_model.apply_bpe(" ".join(src_tokens)).split()
+            if tokenized:
+                src_tokens = input_code.strip().split()
+            else:
+                src_tokens = [t for t in src_tokenizer(input_code)]
+                src_tokens = self.bpe_model.apply_bpe(" ".join(src_tokens)).split()
+
             src_tokens = ["</s>"] + src_tokens + ["</s>"]
             input_code = " ".join(src_tokens)
 
             # Encode source tokens
             len1 = len(input_code.split())
-            len1 = torch.LongTensor(1).fill_(len1).to(device)
-            x1 = torch.LongTensor([self.dico.index(w) for w in input_code.split()]).to(device)[:, None]
+            len1 = torch.LongTensor(1).fill_(len1)
+            x1 = torch.LongTensor([self.dico.index(w) for w in input_code.split()])[:, None]
 
             langs1 = x1.clone().fill_(lang1_id)
             max_len = int(min(self.reloaded_params.max_len, 3 * len1.max().item() + 10))
@@ -163,8 +181,11 @@ class Translator:
             enc1 = enc_res.transpose(0, 1)
 
             # Get target tokens
-            tgt_tokens = target_code.strip().split()
-            tgt_tokens = self.bpe_model.apply_bpe(" ".join(tgt_tokens)).split()
+            if tokenized:
+                tgt_tokens = target_code.strip().split()
+            else:
+                tgt_tokens = [t for t in tgt_tokenizer(target_code)]
+                tgt_tokens = self.bpe_model.apply_bpe(" ".join(tgt_tokens)).split()
 
             tgt_tokens = ["</s>"] + tgt_tokens
 
@@ -175,21 +196,22 @@ class Translator:
 
             # Encode target tokens
             len2 = len(output_code.split())
-            len2 = torch.LongTensor(1).fill_(len2).to(device)
-            x2 = torch.LongTensor([self.dico.index(w) for w in output_code.split()]).to(device)[:, None]
+            len2 = torch.LongTensor(1).fill_(len2)
+            x2 = torch.LongTensor([self.dico.index(w) for w in output_code.split()])[:, None]
             targets, len2 = to_cuda(x2, len2)
-
+            
+            x2, len2 = to_cuda(x2, len2)
             # Decode
             x2, len2, features = self.decoder.generate(
                 enc1,
                 len1,
+                lang1_id,
                 lang2_id,
                 max_len=max_len,
                 sample_temperature=None,
                 return_weights=False,
                 return_features=True,
                 targets=targets,
-                use_knn_store=False,
                 predict_single_token=predict_single_token,
             )
 
@@ -219,7 +241,6 @@ class Translator:
         max_tokens=None,
         length_penalty=0.5,
         max_len=None,
-        use_knn_store=False,
         return_weights=False,
     ):
 
@@ -255,8 +276,8 @@ class Translator:
                 src_tokens = input_code.strip().split()
             else:
                 src_tokens = [t for t in tokenizer(input_code)]
-            print(f"Tokenized {lang1} function:")
-            print(src_tokens)
+            # print(f"Tokenized {lang1} function:")
+            # print("SRC", src_tokens)
             src_tokens = self.bpe_model.apply_bpe(" ".join(src_tokens)).split()
             src_tokens = ["</s>"] + src_tokens + ["</s>"]
             input_code = " ".join(src_tokens)
@@ -306,20 +327,20 @@ class Translator:
                     x2, len2, decoder_weights, cross_weights = self.decoder.generate(
                         enc1,
                         len1,
+                        lang1_id,
                         lang2_id,
                         max_len=max_len,
                         sample_temperature=sample_temperature,
-                        use_knn_store=use_knn_store,
                         return_weights=return_weights,
                     )
                 else:
                     x2, len2 = self.decoder.generate(
                         enc1,
                         len1,
+                        lang1_id,
                         lang2_id,
                         max_len=max_len,
                         sample_temperature=sample_temperature,
-                        use_knn_store=use_knn_store,
                         return_weights=return_weights,
                     )
             else:
@@ -331,7 +352,6 @@ class Translator:
                     early_stopping=False,
                     length_penalty=length_penalty,
                     beam_size=beam_size,
-                    use_knn_store=use_knn_store,
                 )
 
             # Convert out ids to text
@@ -346,6 +366,9 @@ class Translator:
                     tok.append(restore_roberta_segmentation_sentence(" ".join(wid)))
                 else:
                     tok.append(" ".join(wid).replace("@@ ", ""))
+
+            # print(f"Generated {lang1} function:")
+            # print("TGT", tgt_tokens)
             if not detokenize:
                 return tok
             results = []
@@ -411,7 +434,7 @@ if __name__ == "__main__":
     ), f"The target language should be in {SUPPORTED_LANGUAGES}."
 
     # Initialize translator
-    translator = Translator(params.model_path, params.BPE_path)
+    translator = Translator(params.model_path, params.BPE_path, use_knn_store=params.use_knn_store)
 
     # read input code from stdin
     src_sent = []
@@ -428,11 +451,9 @@ if __name__ == "__main__":
             input,
             lang1=params.src_lang,
             lang2=params.tgt_lang,
-            beam_size=params.beam_size,
-            use_knn_store=params.use_knn_store
+            beam_size=params.beam_size
         )
 
     print(f"Translated {params.tgt_lang} function:")
     for out in output:
-        print("=" * 20)
         print(out)

@@ -173,6 +173,7 @@ class Deobfuscator:
                 x2, len2 = self.decoder.generate(
                     enc1,
                     len1,
+                    lang1_id,
                     lang2_id,
                     max_len=int(
                         min(self.reloaded_params.max_len, 3 * len1.max().item() + 10)

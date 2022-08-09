@@ -713,7 +713,7 @@ def main(params):
     if params.encoder_only:
         model = build_model(params, data["dico"])
     else:
-        encoder, decoder = build_model(params, data["dico"])
+        encoder, decoder = build_model(params, data["dico"], use_knn_store=params.use_knn_store)
     print_memory(logger, "before build classifier")
 
     if params.use_classifier:

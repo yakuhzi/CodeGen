@@ -150,7 +150,7 @@ def set_pretrain_emb(model, dico, word2id, embeddings, gpu):
 
 
 @torch.no_grad()
-def build_model(params, dico, gpu=True):
+def build_model(params, dico, gpu=True, use_knn_store: bool=False):
     """
     Build model.
     """
@@ -185,12 +185,12 @@ def build_model(params, dico, gpu=True):
 
         if params.separate_decoders:
             decoders = [
-                TransformerModel(params, dico, is_encoder=False, with_output=True)
+                TransformerModel(params, dico, is_encoder=False, with_output=True, use_knn_store=use_knn_store)
                 for _ in params.lang2id.values()
             ]
         else:
             decoders = [
-                TransformerModel(params, dico, is_encoder=False, with_output=True)
+                TransformerModel(params, dico, is_encoder=False, with_output=True, use_knn_store=use_knn_store)
             ]
 
         for layer in range(params.n_layers_decoder):

@@ -890,6 +890,7 @@ class EncDecEvaluator(Evaluator):
                             generated, lengths = decoder.generate(
                                 enc1.repeat_interleave(params.number_samples, dim=0),
                                 len1.repeat_interleave(params.number_samples, dim=0),
+                                lang1_id,
                                 lang2_id,
                                 max_len=len_v.repeat_interleave(
                                     params.number_samples, dim=0
@@ -905,7 +906,7 @@ class EncDecEvaluator(Evaluator):
                             )
                         else:
                             generated, lengths = decoder.generate(
-                                enc1, len1, lang2_id, max_len=len_v, use_knn_store=use_knn_store
+                                enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=use_knn_store
                             )
                         # print(f'path 1: {generated.shape}')
 
