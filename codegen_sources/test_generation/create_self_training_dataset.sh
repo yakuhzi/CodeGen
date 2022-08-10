@@ -16,18 +16,18 @@ RERUN_ALL_CHUNKS=False
 REPO_ROOT="."
 echo "Repository root: $REPO_ROOT"
 
-SELECTED_FUNCS_ROOT="${ST_OUTPUT_ROOT_DIR}/selected_functions/"
-SELECTED_FUNCS="${SELECTED_FUNCS_ROOT}/deduped/"
-TESTS_PATHS="${ST_OUTPUT_ROOT_DIR}/tests/"
-TRANSLATIONS_AND_RESULTS_PATH="${ST_OUTPUT_ROOT_DIR}/results/"
-TESTS_RESULTS="${TRANSLATIONS_AND_RESULTS_PATH}test_results/"
+SELECTED_FUNCS_ROOT="${ST_OUTPUT_ROOT_DIR}/selected_functions"
+SELECTED_FUNCS="${SELECTED_FUNCS_ROOT}/deduped"
+TESTS_PATHS="${ST_OUTPUT_ROOT_DIR}/tests"
+TRANSLATIONS_AND_RESULTS_PATH="${ST_OUTPUT_ROOT_DIR}/results"
+TESTS_RESULTS="${TRANSLATIONS_AND_RESULTS_PATH}/test_results"
 BPE_CODES_PATH="$REPO_ROOT/data/bpe/cpp-java-python/codes"
 BPE_VOCAB_PATH="$REPO_ROOT/data/bpe/cpp-java-python/vocab"
-PYTHON_BEST_MODEL="${PATH_TO_TRANSLATION_MODELS}/translator_transcoder_size_from_DOBF.pth"
-CPP_BEST_MODEL="${PATH_TO_TRANSLATION_MODELS}/TransCoder_model_1.pth"
-SELECTED_TESTS_PATH="${TESTS_PATHS}selected_tests.csv"
-OFFLINE_DATASET_PATH="${ST_OUTPUT_ROOT_DIR}/offline_dataset/"
-ONLINE_OUTPUT_PATH="${ST_OUTPUT_ROOT_DIR}/online_ST_files/"
+PYTHON_BEST_MODEL="${PATH_TO_TRANSLATION_MODELS}/Online_ST_Java_Python.pth"
+CPP_BEST_MODEL="${PATH_TO_TRANSLATION_MODELS}/Online_ST_Java_CPP.pth"
+SELECTED_TESTS_PATH="${TESTS_PATHS}/selected_tests.csv"
+OFFLINE_DATASET_PATH="${ST_OUTPUT_ROOT_DIR}/offline_dataset"
+ONLINE_OUTPUT_PATH="${ST_OUTPUT_ROOT_DIR}/online_ST_files"
 
 
 # Select functions to create tests on
@@ -69,18 +69,3 @@ python codegen_sources/test_generation/select_successful_tests.py \
   --output_folder $OFFLINE_DATASET_PATH \
   --bpe_path $BPE_CODES_PATH \
   --bpe_vocab $BPE_VOCAB_PATH
-
-# Create files for online dataset
-echo "python codegen_sources/test_generation/create_data_for_online_st.py --dataset_path $OFFLINE_DATASET_PATH --input_dfs_path $TESTS_RESULTS --output_path $ONLINE_OUTPUT_PATH --vocab_path $BPE_VOCAB_PATH"
-python codegen_sources/test_generation/create_data_for_online_st.py \
-  --dataset_path $OFFLINE_DATASET_PATH \
-  --input_dfs_path $TESTS_RESULTS \
-  --output_path $ONLINE_OUTPUT_PATH \
-  --vocab_path $BPE_VOCAB_PATH
-
-# add transcoder test set
-cd $ONLINE_OUTPUT_PATH
-wget https://dl.fbaipublicfiles.com/transcoder/test_set/transcoder_test_set.zip
-unzip transcoder_test_set.zip
-ln -s test_dataset/*.pth .
-

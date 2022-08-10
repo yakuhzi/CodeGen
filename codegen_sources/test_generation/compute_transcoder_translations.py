@@ -77,7 +77,7 @@ def compute_transcoder_translation(
     len_penalty=1.0,
     beam_size=20,
 ):
-    transcoder = Translator(model_path, bpe_path)
+    transcoder = Translator(model_path, bpe_path, global_model=True)
     res = [[] for _ in range(beam_size)]
     for i, func in enumerate(df["java_function"]):
         if i % 100 == 0:

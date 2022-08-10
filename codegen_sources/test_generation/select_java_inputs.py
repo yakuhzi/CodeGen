@@ -110,7 +110,13 @@ def select_functions(funcpath):
         functions = list(set([line.split(" | ", 1)[1] for line in f.readlines()]))
         for func in functions:
             jobs.append(executor.submit(is_simple_standalone_func, func))
-    mask = [j.result() for j in jobs]
+
+    mask = []
+
+    for j in tqdm(jobs):
+        res = j.result()
+        mask.append(res)
+
     return np.array(functions)[mask]
 
 
