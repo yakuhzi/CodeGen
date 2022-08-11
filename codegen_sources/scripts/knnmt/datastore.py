@@ -1,9 +1,11 @@
-from ast import List
-from lib2to3.pgen2 import token
 from tqdm import tqdm
 from ...model.translate import Translator
 from .knnmt import KNNMT
 from hashlib import sha256
+import numpy as np
+import threading
+from pycuda import driver
+
 
 DATASET_PATH = "dump/transcoder_st"
 LANGUAGE_PAIRS = [
@@ -16,6 +18,48 @@ LANGUAGE_PAIRS = [
 ]
 
 
+class GPUThread(threading.Thread):
+    def __init__(self, gpuid, knnmt, language_pair, chunk, pbar):
+        threading.Thread.__init__(self)
+
+        self.ctx = driver.Device(gpuid).make_context()
+        self.device = self.ctx.get_device()
+
+        self.knnmt = knnmt
+        self.language_pair = language_pair
+        self.chunk = chunk
+        self.pbar = pbar
+
+
+    def run(self):
+        print("run", self.getName(), self.device.name(), self.ctx.get_api_version())
+
+        src_language = self.language_pair.split("_")[0]
+        tgt_language = self.language_pair.split("_")[1]
+
+        translator_path = f"models/transcoder_st/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
+        translator_path = translator_path.replace("Cpp", "CPP")
+        translator = Translator(translator_path, "data/bpe/cpp-java-python/codes", global_model=True)
+
+        # Obtain features and targets from decoder
+        for src_sample, tgt_sample in self.chunk:
+            decoder_features, targets, target_tokens = translator.get_features(
+                input_code=src_sample, 
+                target_code=tgt_sample, 
+                src_language=src_language, 
+                tgt_language=tgt_language,
+                tokenized=True
+            )
+
+            self.knnmt.add_to_datastore(decoder_features, targets, self.language_pair)
+            self.pbar.update(1)
+
+
+    def join(self):
+        self.ctx.detach()
+        threading.Thread.join(self)
+
+
 def load_parallel_functions():
     cpp_java_cpp_functions = []
     cpp_java_java_functions = []
@@ -25,10 +69,7 @@ def load_parallel_functions():
     java_python_python_functions = []
 
 
-    for i in range(10):
-        if i < 10:
-            i = f"0{i}"
-
+    for i in range(145):
         cpp_java_cpp_file = open(f"{DATASET_PATH}/dataset_{i}/offline_dataset/train.cpp_sa-java_sa.cpp_sa.bpe", "r")
         cpp_java_cpp_functions += cpp_java_cpp_file.readlines()
 
@@ -77,35 +118,30 @@ def deduped_parallel_functions(parallel_functions):
 
         deduped_functions[language_pair] = deduped_pairs
 
+        print(f"Size of '{language_pair}' dataset: {len(function_pairs)}")
+        print(f"Size of deduped '{language_pair}' dataset: {len(deduped_pairs)}")
+
     return deduped_functions
 
 
 def create_datastore(knnmt: KNNMT):
     parallel_functions = load_parallel_functions()
+    driver.init()
 
     for language_pair in LANGUAGE_PAIRS:
         print("#" * 10 + f" Creating Datastore for '{language_pair}' " + "#" * 10)
 
-        src_language = language_pair.split("_")[0]
-        tgt_language = language_pair.split("_")[1]
-        language_pair = f"{src_language}_{tgt_language}"
+        functions = parallel_functions[language_pair]
+        chunks = np.array_split(functions, driver.Device.count())
 
-        translator_path = f"models/transcoder_st/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
-        translator = Translator(
-            translator_path.replace("Cpp", "CPP"), "data/bpe/cpp-java-python/codes", global_model=True
-        )
+        with tqdm(total=len(functions)) as pbar:
+            threads = [GPUThread(index, knnmt, language_pair, chunk, pbar) for index, chunk in enumerate(chunks)]
 
-        # Obtain features and targets from decoder
-        for src_sample, tgt_sample in tqdm(parallel_functions[language_pair]):
-            decoder_features, targets, target_tokens = translator.get_features(
-                input_code=src_sample, 
-                target_code=tgt_sample, 
-                src_language=src_language, 
-                tgt_language=tgt_language,
-                tokenized=True
-            )
+            for thread in threads:
+                thread.start()
 
-            knnmt.add_to_datastore(decoder_features, targets, language_pair)
+            for thread in threads:
+                thread.join()
 
         knnmt.save_datastore(language_pair)
 
@@ -113,6 +149,26 @@ def create_datastore(knnmt: KNNMT):
 def train_datastore(knnmt: KNNMT):
     for language_pair in LANGUAGE_PAIRS:
         knnmt.train_datastore(language_pair)
+
+
+def output_sample(knnmt: KNNMT):
+    src_language = "cpp"
+    tgt_language = "java"
+
+    translator_path = f"models/transcoder_st/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
+    translator = Translator(
+        translator_path.replace("Cpp", "CPP"), "data/bpe/cpp-java-python/codes", global_model=True
+    )
+
+    source = translator.tokenize("static boolean isEven(int n) { return (!(n & 1)); }", src_language)
+    # generated = translator.tokenize("static int summingSeries(long n) { return (int) Math.pow(n , 2); }", tgt_language)
+    generated = ""
+
+    while "</s>" not in generated and len(generated) < 10000:
+        prediction = predict_next_token(knnmt, translator, src_language, tgt_language, source, generated)
+        generated += " " + prediction
+
+    print("Generated", generated)
 
 
 def predict_next_token(
@@ -141,26 +197,6 @@ def predict_next_token(
     # print("Predictions", knns, tokens, distances)
 
     return tokens[0]
-
-
-def output_sample(knnmt: KNNMT):
-    src_language = "cpp"
-    tgt_language = "java"
-
-    translator_path = f"models/transcoder_st/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
-    translator = Translator(
-        translator_path.replace("Cpp", "CPP"), "data/bpe/cpp-java-python/codes", global_model=True
-    )
-
-    source = translator.tokenize("static boolean isEven(int n) { return (!(n & 1)); }", src_language)
-    # generated = translator.tokenize("static int summingSeries(long n) { return (int) Math.pow(n , 2); }", tgt_language)
-    generated = ""
-
-    while "</s>" not in generated and len(generated) < 10000:
-        prediction = predict_next_token(knnmt, translator, src_language, tgt_language, source, generated)
-        generated += " " + prediction
-
-    print("Generated", generated)
 
 
 def add_sample(knnmt: KNNMT):
@@ -195,5 +231,5 @@ knnmt = KNNMT()
 create_datastore(knnmt)
 train_datastore(knnmt)
 output_sample(knnmt)
-add_sample(knnmt)
-output_sample(knnmt)
+# add_sample(knnmt)
+# output_sample(knnmt)
