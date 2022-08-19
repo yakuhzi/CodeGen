@@ -1,9 +1,10 @@
 import os
 import numpy as np
 import faiss
+import threading
 
-DATASTORE_PATH = "dump/transcoder_st_knnmt/datastore"
-FAISS_INDEX_PATH = "dump/transcoder_st_knnmt/faiss"
+DATASTORE_PATH = "dump/knnmt/datastore"
+FAISS_INDEX_PATH = "dump/knnmt/faiss"
 EMBEDDING_DIMENSION = 1024
 # CLUSTERS = 4096
 CLUSTERS = 512
@@ -15,30 +16,48 @@ SEED = 1
 class KNNMT:
 
     def __init__(self):
+        self.lock = threading.Lock()
+
         self.faiss_index = {}
         self.datastore_keys = {}
         self.datastore_values = {}
-        self.new_examples = []
 
 
-    def add_to_datastore(self, decoder_features, targets, language_pair: str):
+    def get_k_nearest_neighbors(self, features, language_pair: str, k: int = 5):
+        faiss_index = self._load_faiss_index(language_pair)
+        datastore_values = self._load_values(language_pair)
+
+        input = features.cpu().detach().numpy().astype('float32')
+
+        distances, knns = faiss_index.search(input, k)
+        values = [[datastore_values[index] for index in k] for k in knns]
+
+        return values, distances
+
+
+    def add_to_datastore(self, features, targets, language_pair: str):
         keys = []
         values = []
 
-        for features, target in zip(decoder_features, targets[1:]):
-            key = features.detach().cpu().numpy().astype(np.float32)
-            keys.append(key)
-            self.new_examples.append(key)
+        for features, target in zip(features, targets[1:]):
+            keys.append(features.detach().cpu().numpy().astype(np.float32))
             values.append(target.cpu().numpy().astype(np.int))
 
         keys = np.array(keys, dtype=np.float32)
         values = np.array(values, dtype=np.int)
+
+        if keys.shape[0] != values.shape[0]:
+            print(keys.shape, values.shape, targets)
+
+        self.lock.acquire()
 
         datastore_keys = self._load_keys(language_pair)
         datastore_values = self._load_values(language_pair)
 
         self.datastore_keys[language_pair] = np.concatenate((datastore_keys, keys), axis=0)
         self.datastore_values[language_pair] = np.concatenate((datastore_values, values), axis=0)
+
+        self.lock.release()
 
 
     def save_datastore(self, language_pair: str):
@@ -54,6 +73,9 @@ class KNNMT:
         datastore_values = self.datastore_values[language_pair]
         
         # Save datastore
+        print("Save Keys:", datastore_keys.shape)
+        print("Save Values:", datastore_values.shape)
+
         np.save(keys_path, datastore_keys)
         np.save(values_path, datastore_values)
 
@@ -61,15 +83,9 @@ class KNNMT:
     def train_datastore(self, language_pair):
         print(f"Training Datastore for '{language_pair}'")
 
-        # Initialize faiss index
-        resources = faiss.StandardGpuResources()
-        options = faiss.GpuClonerOptions()
-        options.useFloat16 = True
-
         # Load keys and values from datastore
         keys = self._load_keys(language_pair)
         values = self._load_values(language_pair)
-        print(keys.shape)
 
         # Initialize faiss
         gpu_index = self._load_faiss_index(language_pair, retrain=True)
@@ -95,20 +111,6 @@ class KNNMT:
         faiss.write_index(faiss.index_gpu_to_cpu(gpu_index), faiss_path)
 
 
-    def get_k_nearest_neighbors(self, features, language_pair: str, k: int = 5):
-        faiss_index = self._load_faiss_index(language_pair)
-        datastore_values = self._load_values(language_pair)
-
-        input = np.zeros((1, 1024)).astype('float32')
-        input[0] = features.cpu()
-
-        distances, knns = faiss_index.search(input, k)
-
-        values = [datastore_values[index] for index in knns[0]]
-        distances = distances[0]
-        return values, distances
-
-
     def _load_keys(self, language_pair: str):
         keys_path = f"{DATASTORE_PATH}/keys_{language_pair}.npy"
 
@@ -119,6 +121,7 @@ class KNNMT:
             print(f"Loading Datastore Keys for '{language_pair}'")
             datastore_keys = np.load(keys_path)
             self.datastore_keys[language_pair] = datastore_keys
+            print("Keys: ", datastore_keys.shape)
         else:
             datastore_keys = np.zeros((0, 1024)).astype('float32')
 
@@ -135,6 +138,7 @@ class KNNMT:
             print(f"Loading Datastore Values for '{language_pair}'")
             datastore_values = np.load(values_path)
             self.datastore_values[language_pair] = datastore_values
+            print("Values: ", datastore_values.shape)
         else:
             datastore_values = np.zeros((0, )).astype('int')
 

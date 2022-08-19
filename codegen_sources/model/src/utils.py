@@ -502,7 +502,7 @@ def shuf_order(langs, params=None, n=5):
 
 
 def vizualize_translated_files(
-    lang1, lang2, src_file, hyp_file, ids, ref_file=None, out_file=None
+    lang1, lang2, src_file, hyp_file, ids, ref_file=None, out_file=None, knnmt_paths=None
 ):
     lang1_processor = LangProcessor.processors[lang1.split("_")[0]](
         root_folder=TREE_SITTER_ROOT
@@ -514,10 +514,17 @@ def vizualize_translated_files(
     hyp_viz = str(
         Path(re.sub("beam\d", "", hyp_file[0])).with_suffix(".vizualize.txt.tmp")
     )
+
+    if knnmt_paths is not None:
+        knnmt_hyp_viz = str(
+            Path(re.sub("beam\d", "", knnmt_paths[0])).with_suffix(".vizualize.txt.tmp")
+        )
+
     if ref_file is None:
         ref_viz = str(Path("ref_tmp").with_suffix(".vizualize.txt"))
     else:
         ref_viz = str(Path(ref_file).with_suffix(".vizualize.txt"))
+
     if out_file is None:
         out_viz = str(Path("out_tmp").with_suffix(".vizualize.txt"))
     else:
@@ -530,6 +537,14 @@ def vizualize_translated_files(
     hyp_lines = list(
         zip(*[read_file_lines(path) for path in hyp_file])
     )  # test_size * beam_size
+
+    if knnmt_paths is not None:
+        knnmt_hyp_lines = list(
+            zip(*[read_file_lines(path) for path in knnmt_paths])
+        )
+    else:
+        knnmt_hyp_lines = [None for line in hyp_lines]
+
     beam_size = len(hyp_lines[0])
 
     with open(src_file, encoding="utf-8") as f:
@@ -550,134 +565,193 @@ def vizualize_translated_files(
             ["" for n in range(len(hyp_lines[0]))] for l in range(len(src_lines))
         ]
 
-    with open(src_viz, "w", encoding="utf-8") as src_vizf:
-        with open(hyp_viz, "w", encoding="utf-8") as hyp_vizf:
-            with open(ref_viz, "w", encoding="utf-8") as ref_vizf:
-                with open(out_viz, "w", encoding="utf-8") as out_vizf:
-                    src_vizf.write(
-                        "========================SOURCE============================\n"
+    src_vizf = open(src_viz, "w", encoding="utf-8")
+    hyp_vizf = open(hyp_viz, "w", encoding="utf-8")
+    ref_vizf = open(ref_viz, "w", encoding="utf-8")
+    out_vizf = open(out_viz, "w", encoding="utf-8")
+
+    src_vizf.write("========================SOURCE============================\n")
+    hyp_vizf.write("=========================HYPO=============================\n")
+    ref_vizf.write("==========================REF=============================\n")
+    out_vizf.write("==========================OUT=============================\n")
+
+    if knnmt_paths is not None:
+        knnmt_vizf = open(knnmt_hyp_viz, "w", encoding="utf-8")
+        knnmt_vizf.write("=========================KNNMT============================\n")
+
+    for src, hyps, knnmt_hyps, ref, outs, i in zip(
+        src_lines, hyp_lines, knnmt_hyp_lines, ref_lines, out_lines, ids
+    ):
+        src_vizf.write("=========================================================\n")
+        hyp_vizf.write("=========================================================\n")
+        ref_vizf.write("=========================================================\n")
+        out_vizf.write("=========================================================\n")
+
+        src_vizf.write(f"{i}")
+        hyp_vizf.write(f"{i}")
+        ref_vizf.write(f"{i}")
+        out_vizf.write(f"{i}")
+        src_vizf.write("--\n")
+        hyp_vizf.write("--\n")
+        ref_vizf.write("--\n")
+        out_vizf.write("--\n")
+
+        if knnmt_paths is not None:
+            knnmt_vizf.write("=========================================================\n")
+            knnmt_vizf.write(f"{i}")
+            knnmt_vizf.write("--\n")
+
+        try:
+            src = lang1_processor.detokenize_code(src)
+            src_vizf.write(src)
+        except:
+            src = "".join(
+                [
+                    c if (i + 1) % 50 != 0 else c + "\n"
+                    for i, c in enumerate(src)
+                ]
+            )
+            src_vizf.write(src)
+
+        try:
+            ref = lang2_processor.detokenize_code(ref)
+            ref_vizf.write(ref)
+        except:
+            ref = "".join(
+                [
+                    c if (i + 1) % 50 != 0 else c + "\n"
+                    for i, c in enumerate(ref)
+                ]
+            )
+            ref_vizf.write(ref)
+
+        for i in range(beam_size):
+            hyp = hyps[i]
+            out = outs[i]
+
+            if knnmt_paths is not None:
+                knnmt_hyp = knnmt_hyps[i]
+
+            try:
+                hyp = lang2_processor.detokenize_code(hyp)
+                hyp_vizf.write(hyp)
+
+                if knnmt_paths is not None:
+                    knnmt_hyp = lang2_processor.detokenize_code(knnmt_hyp)
+                    knnmt_vizf.write(knnmt_hyp)
+            except:
+                hyp = "".join(
+                    [
+                        c if (i + 1) % 50 != 0 else c + "\n"
+                        for i, c in enumerate(hyp)
+                    ]
+                )
+                hyp_vizf.write(hyp)
+
+                if knnmt_paths is not None:
+                    knnmt_hyp = "".join(
+                        [
+                            c if (i + 1) % 50 != 0 else c + "\n"
+                            for i, c in enumerate(knnmt_hyp)
+                        ]
                     )
-                    hyp_vizf.write(
-                        "=========================HYPO=============================\n"
+                    knnmt_vizf.write(knnmt_hyp)
+
+            out = "".join(
+                [
+                    c if (i + 1) % 50 != 0 else c + "\n"
+                    for i, c in enumerate(out)
+                ]
+            )
+            out_vizf.write(out)
+
+            if i == 0:
+                if knnmt_paths is None:
+                    maximum = max(
+                        len(src.split("\n")),
+                        len(hyp.split("\n")),
+                        len(ref.split("\n")),
+                        len(out.split("\n")),
                     )
-                    ref_vizf.write(
-                        "==========================REF=============================\n"
+                else:
+                    maximum = max(
+                        len(src.split("\n")),
+                        len(hyp.split("\n")),
+                        len(knnmt_hyp.split("\n")),
+                        len(ref.split("\n")),
+                        len(out.split("\n")),
                     )
-                    out_vizf.write(
-                        "==========================OUT=============================\n"
-                    )
 
-                    for src, hyps, ref, outs, i in zip(
-                        src_lines, hyp_lines, ref_lines, out_lines, ids
-                    ):
-                        src_vizf.write(
-                            "=========================================================\n"
-                        )
-                        hyp_vizf.write(
-                            "=========================================================\n"
-                        )
-                        ref_vizf.write(
-                            "=========================================================\n"
-                        )
-                        out_vizf.write(
-                            "=========================================================\n"
-                        )
-                        src_vizf.write(f"{i}")
-                        hyp_vizf.write(f"{i}")
-                        ref_vizf.write(f"{i}")
-                        out_vizf.write(f"{i}")
-                        src_vizf.write("--\n")
-                        hyp_vizf.write("--\n")
-                        ref_vizf.write("--\n")
-                        out_vizf.write("--\n")
+                for i in range(len(src.split("\n")), maximum):
+                    src_vizf.write("\n")
 
-                        try:
-                            src = lang1_processor.detokenize_code(src)
-                            src_vizf.write(src)
-                        except:
-                            src = "".join(
-                                [
-                                    c if (i + 1) % 50 != 0 else c + "\n"
-                                    for i, c in enumerate(src)
-                                ]
-                            )
-                            src_vizf.write(src)
+                for i in range(len(hyp.split("\n")), maximum):
+                    hyp_vizf.write("\n")
 
-                        try:
-                            ref = lang2_processor.detokenize_code(ref)
-                            ref_vizf.write(ref)
-                        except:
-                            ref = "".join(
-                                [
-                                    c if (i + 1) % 50 != 0 else c + "\n"
-                                    for i, c in enumerate(ref)
-                                ]
-                            )
-                            ref_vizf.write(ref)
+                for i in range(len(ref.split("\n")), maximum):
+                    ref_vizf.write("\n")
 
-                        for i in range(beam_size):
-                            hyp = hyps[i]
-                            out = outs[i]
-                            try:
-                                hyp = lang2_processor.detokenize_code(hyp)
-                                hyp_vizf.write(hyp)
-                            except:
-                                hyp = "".join(
-                                    [
-                                        c if (i + 1) % 50 != 0 else c + "\n"
-                                        for i, c in enumerate(hyp)
-                                    ]
-                                )
-                                hyp_vizf.write(hyp)
+                for i in range(len(out.split("\n")), maximum):
+                    out_vizf.write("\n")
 
-                            out = "".join(
-                                [
-                                    c if (i + 1) % 50 != 0 else c + "\n"
-                                    for i, c in enumerate(out)
-                                ]
-                            )
-                            out_vizf.write(out)
+                if knnmt_paths is not None:
+                    for i in range(len(knnmt_hyp.split("\n")), maximum):
+                        knnmt_vizf.write("\n")
+            else:
+                if knnmt_paths is None:
+                    maximum = max(len(hyp.split("\n")), len(out.split("\n")))
+                else:
+                    maximum = max(len(hyp.split("\n")), len(knnmt_hyp.split("\n")), len(out.split("\n")))
 
-                            if i == 0:
-                                maximum = max(
-                                    len(src.split("\n")),
-                                    len(hyp.split("\n")),
-                                    len(ref.split("\n")),
-                                    len(out.split("\n")),
-                                )
-                                for i in range(len(src.split("\n")), maximum):
-                                    src_vizf.write("\n")
-                                for i in range(len(hyp.split("\n")), maximum):
-                                    hyp_vizf.write("\n")
-                                for i in range(len(ref.split("\n")), maximum):
-                                    ref_vizf.write("\n")
-                                for i in range(len(out.split("\n")), maximum):
-                                    out_vizf.write("\n")
-                            else:
-                                maximum = max(
-                                    len(hyp.split("\n")), len(out.split("\n"))
-                                )
-                                for i in range(maximum - 1):
-                                    src_vizf.write("\n")
-                                for i in range(maximum - 1):
-                                    ref_vizf.write("\n")
-                                for i in range(len(hyp.split("\n")), maximum):
-                                    hyp_vizf.write("\n")
-                                for i in range(len(out.split("\n")), maximum):
-                                    out_vizf.write("\n")
-                            src_vizf.write("-\n")
-                            hyp_vizf.write("-\n")
-                            ref_vizf.write("-\n")
-                            out_vizf.write("-\n")
+                for i in range(maximum - 1):
+                    src_vizf.write("\n")
 
-                        src_vizf.write("--\n\n")
-                        hyp_vizf.write("--\n\n")
-                        ref_vizf.write("--\n\n")
-                        out_vizf.write("--\n\n")
+                for i in range(maximum - 1):
+                    ref_vizf.write("\n")
 
-    command = (
-        f"pr -w 250 -m -t {src_viz} {ref_viz} {hyp_viz} {out_viz} > {hyp_viz[:-4]}"
-    )
+                for i in range(len(hyp.split("\n")), maximum):
+                    hyp_vizf.write("\n")
+
+                for i in range(len(out.split("\n")), maximum):
+                    out_vizf.write("\n")
+
+                if knnmt_paths is not None:
+                    for i in range(len(knnmt_hyp.split("\n")), maximum):
+                        knnmt_vizf.write("\n")
+
+            src_vizf.write("-\n")
+            hyp_vizf.write("-\n")
+            ref_vizf.write("-\n")
+            out_vizf.write("-\n")
+
+            if knnmt_paths is not None:
+                knnmt_vizf.write("-\n")
+
+        src_vizf.write("--\n\n")
+        hyp_vizf.write("--\n\n")
+        ref_vizf.write("--\n\n")
+        out_vizf.write("--\n\n")
+
+        if knnmt_paths is not None:
+            knnmt_vizf.write("--\n\n")
+
+    src_vizf.close()
+    hyp_vizf.close()
+    ref_vizf.close()
+    out_vizf.close()
+
+    if knnmt_paths is not None:
+        knnmt_vizf.close()
+
+    if knnmt_paths is None:
+        command = (
+            f"pr -w 400 -m -t {src_viz} {ref_viz} {hyp_viz} {out_viz} > {hyp_viz[:-4]}"
+        )
+    else:
+        command = (
+            f"pr -w 400 -m -t {src_viz} {ref_viz} {hyp_viz} {knnmt_hyp_viz} {out_viz} > {hyp_viz[:-4]}"
+        )
+
     subprocess.Popen(
         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     ).wait()
@@ -686,6 +760,9 @@ def vizualize_translated_files(
     os.remove(ref_viz)
     os.remove(hyp_viz)
     os.remove(out_viz)
+
+    if knnmt_paths is not None:
+        os.remove(knnmt_hyp_viz)
 
 
 def vizualize_do_files(lang1, src_file, ref_file, hyp_file):

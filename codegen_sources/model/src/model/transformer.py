@@ -600,6 +600,7 @@ class TransformerModel(nn.Module):
         return_features=False,
         targets=None,
         predict_single_token=False,
+        use_knn_store=False
     ):
         """
         Decode a sentence given initial start.
@@ -728,8 +729,8 @@ class TransformerModel(nn.Module):
             if targets is not None and not (predict_single_token and cur_len == len(targets)):
                 next_words = targets[cur_len]
             elif sample_temperature is None:
-                if self.use_knn_store:
-                    next_words = self.predict_next_words(tensor.squeeze(), scores, src_lang_id, tgt_lang_id)
+                if use_knn_store:
+                    next_words = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id)
                 else:
                     next_words = torch.topk(scores, 1)[1].squeeze(1)
             else:
@@ -772,16 +773,13 @@ class TransformerModel(nn.Module):
             return generated[:cur_len], gen_len
 
     def predict_next_words(self, features, scores, src_lang_id, tgt_lang_id):
-        k = 64
-        temperature = 10
+        k = 16
+        knn_temperature = 10
+        tc_temperature = 2
         lmbda = 0.5
 
         src_language = self.id2lang[src_lang_id].split("_")[0]
         tgt_language = self.id2lang[tgt_lang_id].split("_")[0]
-
-        scores = torch.topk(scores, k)
-        tc_targets = scores[1][0]
-        tc_scores = scores[0][0]
 
         knn_targets, knn_distances = self.knnmt.get_k_nearest_neighbors(
             features, 
@@ -789,42 +787,50 @@ class TransformerModel(nn.Module):
             k=k
         )
 
-        normalized_tc_scores = F.softmax(tc_scores, dim=0)
-        normalized_knn_distances = F.softmax(torch.tensor(knn_distances / temperature * -1), dim=0)
+        tc_topk = torch.topk(scores, k)
+        tc_targets = tc_topk[1]
+        tc_scores = tc_topk[0]
 
-        target_scores = {}
+        normalized_knn_distances = F.softmax(torch.tensor(knn_distances / knn_temperature * -1), dim=-1)
+        normalized_tc_scores = F.softmax(tc_scores.float() / tc_temperature, dim=-1) # TODO: Add temperature?
 
-        for target, distance in zip(tc_targets, normalized_tc_scores):
-            if target_scores.get(target.item()) is None:
-                target_scores[target.item()] = distance.item() * (1 - lmbda)
-            else:
-                target_scores[target.item()] += distance.item() * (1 - lmbda)
+        next_words = []
 
-        for target, distance in zip(knn_targets, normalized_knn_distances):
-            if target_scores.get(target) is None:
-                target_scores[target] = distance.item() * lmbda
-            else:
-                target_scores[target] += distance.item() * lmbda
+        for batch_index in range(features.size(0)):
+            target_scores = {}
 
-        target_scores = { k: v for k, v in reversed(sorted(target_scores.items(), key=lambda item: item[1])) }
-        target = max(target_scores, key=target_scores.get)
+            for target, distance in zip(knn_targets[batch_index], normalized_knn_distances[batch_index]):
+                if target_scores.get(target) is None:
+                    target_scores[target] = distance.item() * lmbda
+                else:
+                    target_scores[target] += distance.item() * lmbda
 
-        tc_greedy_target = tc_targets[0].item()
+            for target, distance in zip(tc_targets[batch_index], normalized_tc_scores[batch_index]):
+                if target_scores.get(target.item()) is None:
+                    target_scores[target.item()] = distance.item() * (1 - lmbda)
+                else:
+                    target_scores[target.item()] += distance.item() * (1 - lmbda)
 
-        print("\n")
-        print("KNN", knn_targets[:3], [self.dico[t.item()] for t in knn_targets[:3]], knn_distances[:3], normalized_knn_distances[:3])
-        print("SCORES", tc_targets[:3], [self.dico[t.item()] for t in tc_targets[:3]], tc_scores[:3], normalized_tc_scores[:3])
-        print("PRED", target, self.dico[target], tc_greedy_target, self.dico[tc_greedy_target])
-        print("\n")
-
-        if target != tc_greedy_target:
-            print(f"KNNMT: Used '{self.dico[target]}' ({target}) instead of '{self.dico[tc_greedy_target]}' ({tc_greedy_target})")
-            # print("KNN", knn_targets[:5], knn_distances[:5], normalized_knn_distances[:5])
-            # print("SCORES", tc_targets[:5], tc_scores[:5], normalized_tc_scores[:5])
-            # print("TARGET_SCORES", target_scores)
+            target_scores = { k: v for k, v in reversed(sorted(target_scores.items(), key=lambda item: item[1])) }
+            target = max(target_scores, key=target_scores.get)
+            tc_greedy_target = tc_targets[batch_index][0].item()
+            next_words.append(target)
+            
+            # print("\n")
+            # print("KNN", knn_targets[batch_index][:5], [self.dico[t.item()] for t in knn_targets[batch_index][:5]], knn_distances[batch_index][:3], normalized_knn_distances[batch_index][:5])
+            # print("SCORES", tc_targets[batch_index][:5], [self.dico[t.item()] for t in tc_targets[batch_index][:5]], tc_scores[batch_index][:3], normalized_tc_scores[batch_index][:5])
             # print("PRED", target, self.dico[target], tc_greedy_target, self.dico[tc_greedy_target])
+            # print("\n")
 
-        return torch.tensor([target]).cuda()
+            if target != tc_greedy_target:
+                # print("\n")
+                print(f"KNNMT: Used '{self.dico[target]}' ({target}) instead of '{self.dico[tc_greedy_target]}' ({tc_greedy_target})")
+                # print("KNN", knn_targets[batch_index][:3], [self.dico[t.item()] for t in knn_targets[batch_index][:3]], knn_distances[batch_index][:3], normalized_knn_distances[batch_index][:3])
+                # print("SCORES", tc_targets[batch_index][:3], [self.dico[t.item()] for t in tc_targets[batch_index][:3]], tc_scores[batch_index][:3], normalized_tc_scores[batch_index][:3])
+                # print("PRED", target, self.dico[target], tc_greedy_target, self.dico[tc_greedy_target])
+                # print("\n")
+
+        return torch.tensor(next_words).cuda()
 
     def generate_beam(
         self,

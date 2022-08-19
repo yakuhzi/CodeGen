@@ -800,6 +800,7 @@ class EncDecEvaluator(Evaluator):
             xe_loss = 0
             n_valid = 0
             hypothesis = []
+            knnmt_hypothesis = []
             sources = []
             references = []
             for i, batch in enumerate(
@@ -896,7 +897,7 @@ class EncDecEvaluator(Evaluator):
                                     params.number_samples, dim=0
                                 ),
                                 sample_temperature=params.eval_temperature,
-                                use_knn_store=use_knn_store,
+                                use_knn_store=False,
                             )
                             generated = generated.T.reshape(
                                 -1, params.number_samples, generated.shape[0]
@@ -904,10 +905,33 @@ class EncDecEvaluator(Evaluator):
                             lengths, _ = lengths.reshape(-1, params.number_samples).max(
                                 dim=1
                             )
+                            # KNNMT
+                            if params.use_knn_store:
+                                knnmt_generated, knnmt_lengths = decoder.generate(
+                                    enc1.repeat_interleave(params.number_samples, dim=0),
+                                    len1.repeat_interleave(params.number_samples, dim=0),
+                                    lang1_id,
+                                    lang2_id,
+                                    max_len=len_v.repeat_interleave(
+                                        params.number_samples, dim=0
+                                    ),
+                                    sample_temperature=params.eval_temperature,
+                                    use_knn_store=True,
+                                )
+                                knnmt_generated = knnmt_generated.T.reshape(
+                                    -1, params.number_samples, knnmt_generated.shape[0]
+                                ).T
+                                knnmt_lengths, _ = knnmt_lengths.reshape(-1, params.number_samples).max(
+                                    dim=1
+                                )
                         else:
                             generated, lengths = decoder.generate(
-                                enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=use_knn_store
+                                enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=False
                             )
+                            if params.use_knn_store:
+                                knnmt_generated, knnmt_lengths = decoder.generate(
+                                    enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=True
+                                )
                         # print(f'path 1: {generated.shape}')
 
                     else:
@@ -920,7 +944,6 @@ class EncDecEvaluator(Evaluator):
                             length_penalty=params.length_penalty,
                             early_stopping=params.early_stopping,
                             max_len=len_v,
-                            use_knn_store=use_knn_store
                         )
                         # print(f'path 2: {generated.shape}')
                     if i == 0:
@@ -951,8 +974,20 @@ class EncDecEvaluator(Evaluator):
                             generate_several_reps=True,
                         )
                     )
+
                     references.extend(convert_to_text(x2, len2, self.dico, params))
                     sources.extend(convert_to_text(x1, len1, self.dico, params))
+
+                    if params.use_knn_store:
+                        knnmt_hypothesis.extend(
+                            convert_to_text(
+                                knnmt_generated,
+                                knnmt_lengths,
+                                self.dico,
+                                params,
+                                generate_several_reps=True,
+                            )
+                        )
 
             # compute perplexity and prediction accuracy
             l1l2 = get_l1l2_string(lang1, lang2, deobfuscation_proba)
@@ -963,7 +998,7 @@ class EncDecEvaluator(Evaluator):
             if (
                 eval_bleu or eval_computation or eval_subtoken_score
             ) and data_set in datasets_for_bleu:
-                hyp_paths, ref_path, src_path = self.write_hypo_ref_src(
+                hyp_paths, knnmt_paths, ref_path, src_path = self.write_hypo_ref_src(
                     data_set,
                     hypothesis,
                     lang1,
@@ -973,6 +1008,7 @@ class EncDecEvaluator(Evaluator):
                     scores,
                     sources,
                     deobfuscation_proba,
+                    knnmt_hypothesis
                 )
 
             # check how many functions compiles + return same output as GT
@@ -990,6 +1026,7 @@ class EncDecEvaluator(Evaluator):
                     roberta_mode=params.roberta_mode,
                     correct_functions=correct_functions,
                     constrained=constrained,
+                    knnmt_paths=knnmt_paths
                 )
 
             if (
@@ -1042,6 +1079,10 @@ class EncDecEvaluator(Evaluator):
                     for hyp_path in hyp_paths:
                         Path(hyp_path).unlink()
 
+                    if knnmt_paths is not None:
+                        for knnmt_path in knnmt_paths:
+                            Path(knnmt_path).unlink()
+
             if (
                 deobfuscate
                 and eval_bleu
@@ -1062,13 +1103,14 @@ class EncDecEvaluator(Evaluator):
         scores,
         sources=None,
         deobfuscation_proba=None,
+        knnmt_hypothesis=None
     ):
         # hypothesis / reference paths
         hyp_paths = []
-        ref_name = "ref.{0}.{1}.txt".format(
-            get_l1l2_string(lang1, lang2, deobfuscation_proba), data_set
-        )
+        knnmt_paths = []
+        ref_name = "ref.{0}.{1}.txt".format(get_l1l2_string(lang1, lang2, deobfuscation_proba), data_set)
         ref_path = os.path.join(params.hyp_path, ref_name)
+
         # export sentences to hypothesis file / restore BPE segmentation
         for beam_number in range(len(hypothesis[0])):
             hyp_name = "hyp{0}.{1}.{2}_beam{3}.txt".format(
@@ -1077,29 +1119,52 @@ class EncDecEvaluator(Evaluator):
                 data_set,
                 beam_number,
             )
+            
             hyp_path = os.path.join(params.hyp_path, hyp_name)
             hyp_paths.append(hyp_path)
+
             print(f"outputing hypotheses in {hyp_path}")
+
             with open(hyp_path, "w", encoding="utf-8") as f:
                 f.write("\n".join([hyp[beam_number] for hyp in hypothesis]) + "\n")
-            restore_segmentation(
-                hyp_path, roberta_mode=params.roberta_mode, single_line=True
-            )
+
+            restore_segmentation(hyp_path, roberta_mode=params.roberta_mode, single_line=True)
+
+            if len(knnmt_hypothesis) > 0:
+                knnmt_name = "knnmt{0}.{1}.{2}_beam{3}.txt".format(
+                    scores["epoch"],
+                    get_l1l2_string(lang1, lang2, deobfuscation_proba),
+                    data_set,
+                    beam_number,
+                )
+
+                knnmt_path = os.path.join(params.hyp_path, knnmt_name)
+                knnmt_paths.append(knnmt_path)
+
+                with open(knnmt_path, "w", encoding="utf-8") as f:
+                    f.write("\n".join([hyp[beam_number] for hyp in knnmt_hypothesis]) + "\n")
+
+                restore_segmentation(knnmt_path, roberta_mode=params.roberta_mode, single_line=True)
+
         # export reference to ref file / restore BPE segmentation
         with open(ref_path, "w", encoding="utf-8") as f:
             f.write("\n".join([ref for ref in references]) + "\n")
-        restore_segmentation(
-            ref_path, roberta_mode=params.roberta_mode, single_line=True
-        )
+
+        restore_segmentation(ref_path, roberta_mode=params.roberta_mode, single_line=True)
+
+        if len(knnmt_hypothesis) == 0:
+            knnmt_paths = None
+
         if sources:
             src_path = ref_path.replace("ref.", "src.")
+            
             with open(src_path, "w", encoding="utf-8") as f:
                 f.write("\n".join([src for src in sources]) + "\n")
-            restore_segmentation(
-                src_path, roberta_mode=params.roberta_mode, single_line=True
-            )
-            return hyp_paths, ref_path, src_path
-        return hyp_paths, ref_path, None
+
+            restore_segmentation(src_path, roberta_mode=params.roberta_mode, single_line=True)
+            return hyp_paths, knnmt_paths, ref_path, src_path
+
+        return hyp_paths, knnmt_paths, ref_path, None
 
     def compute_comp_acc(
         self,
@@ -1115,6 +1180,7 @@ class EncDecEvaluator(Evaluator):
         evosuite_functions=False,
         correct_functions=False,
         constrained=False,
+        knnmt_paths=None
     ):
         assert self.evosuite_tests_dico is not None or not evosuite_functions
         func_run_stats, func_run_out = eval_function_output(
@@ -1129,7 +1195,8 @@ class EncDecEvaluator(Evaluator):
             evosuite_functions=evosuite_functions,
             evosuite_tests=self.evosuite_tests_dico,
             correct_functions=correct_functions,
-            constrained=constrained
+            constrained=constrained,
+            knnmt_paths=knnmt_paths,
         )
 
         out_paths = []
@@ -1160,6 +1227,7 @@ class EncDecEvaluator(Evaluator):
             params.id_paths[(lang1, lang2, data_set)],
             ref_path,
             out_paths,
+            knnmt_paths
         )
         logger.info(
             prefix

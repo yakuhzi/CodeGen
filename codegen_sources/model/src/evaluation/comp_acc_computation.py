@@ -260,6 +260,7 @@ def submit_functions(
     retry_mismatching_types,
     roberta_mode=False,
     correct_functions=False,
+    replaced_indices=[]
 ):
     lang_processor = LangProcessor.processors[lang](root_folder=TREE_SITTER_ROOT)
     results_list = []
@@ -267,18 +268,24 @@ def submit_functions(
 
     for try_id, f_fill in enumerate(functions_list):
         f = f_fill.rstrip()
+
         script_model_path = os.path.join(script_folder, f"{lang}/{i}.{EXT[lang]}")
+
         if os.path.exists(script_model_path):
             script_model = open(script_model_path, "r", encoding="utf-8").read()
+
             try:
                 f_name = lang_processor.get_function_name(f)
                 f = f.replace(f_name, "f_filled")
             except:
                 results_list.append(("error", "Could not replace function name"))
                 f_name = ""
+                knnmt_f = ""
+
             if f_fill == ref:
                 results_list.append(("success", "identical to gold"))
                 return results_list, i
+
             f = (
                 lang_processor.detokenize_code(f)
                 if not roberta_mode
@@ -296,12 +303,17 @@ def submit_functions(
 
             script_path = f"{outfolder}/{i}.{EXT[lang]}"
             open(script_path, "w", encoding="utf-8").write(script)
+
             run_pg = globals()[f"run_{lang}_program"]
             result, _ = run_pg(script_path, i)
 
             if result[0] == "success":
                 if try_id > 0:
                     print("Fixed function through constrained beam search", id, try_id, f_fill, ref)
+
+                if try_id in replaced_indices:
+                    print("Fixed function through KNNMT", id, try_id, f_fill, ref)
+
                 results_list.append(result)
                 return results_list, i
             elif retry_mismatching_types and lang in {"cpp", "java"}:
@@ -335,9 +347,11 @@ def submit_functions(
                         )
 
             if has_compile_errors(f_fill, tgt_language=lang):
-                results_list.append(("compile_error", i))
-            else:
-                results_list.append(result)
+                result = list(result)
+                result[0] = "compile_error"
+                result = tuple(result)
+
+            results_list.append(result)
         else:
             return [return_script_not_found()], i
     return results_list, i
@@ -356,12 +370,27 @@ def eval_function_output(
     evosuite_tests=None,
     correct_functions=False,
     constrained=False,
+    knnmt_paths = None
 ):
+    # List of tuples of functions. List elements = function id, tuple elements = beam.
     functions = list(zip(*[read_file_lines(path) for path in hyp_paths]))
+    # List of function ids
     ids = read_file_lines(id_path)
+    # List of reference functions
     refs = read_file_lines(ref_path)
+
     assert len(functions) == len(ids), f"{len(functions), len(ids)}"
     assert len(functions) == len(refs), f"{len(functions), len(refs)}"
+
+    if knnmt_paths is not None:
+        # List of tuples of KNNMT functions. List elements = function id, tuple elements = beam.
+        knnmt_functions = list(zip(*[read_file_lines(path) for path in knnmt_paths]))
+
+        assert len(knnmt_functions) == len(ids), f"{len(functions), len(ids)}"
+        assert len(knnmt_functions) == len(refs), f"{len(functions), len(refs)}"
+    else:
+        knnmt_functions = [None for f in functions]
+
     lang = lang2.split("_")[0]
     jobs = []
     executor = ProcessPoolExecutor()
@@ -383,7 +412,19 @@ def eval_function_output(
                 beam_functions = (beam_functions[0],)
                 functions[i] = beam_functions
 
-    for f, i, r in zip(functions, ids, refs):
+    # For each function in list
+    for f, knnmt_f, i, r in zip(functions, knnmt_functions, ids, refs):
+        replaced_indices = []
+
+        # For each beam in tuple
+        for index, function in enumerate(f):
+            if knnmt_f is not None and has_compile_errors(function, tgt_language=lang):
+                print("REPLACED", i, f[index], knnmt_f[index])
+                replaced_indices.append(index)
+                f = list(f)
+                f[index] = knnmt_f[index]
+                f = tuple(f)
+                
         if evosuite_functions:
             jobs.append(
                 executor.submit(
@@ -392,7 +433,7 @@ def eval_function_output(
                     i,
                     lang,
                     evosuite_tests[lang],
-                    roberta_mode,
+                    roberta_mode
                 )
             )
         else:
@@ -407,7 +448,8 @@ def eval_function_output(
                     script_folder,
                     retry_mismatching_types,
                     roberta_mode,
-                    correct_functions
+                    correct_functions,
+                    replaced_indices
                 )
             )
 
