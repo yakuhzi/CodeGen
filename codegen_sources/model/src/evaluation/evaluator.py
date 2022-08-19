@@ -939,12 +939,26 @@ class EncDecEvaluator(Evaluator):
                         generated, lengths, _ = decoder.generate_beam(
                             enc1,
                             len1,
+                            lang1_id,
                             lang2_id,
                             beam_size=params.beam_size,
                             length_penalty=params.length_penalty,
                             early_stopping=params.early_stopping,
                             max_len=len_v,
+                            use_knn_store=False
                         )
+                        if params.use_knn_store:
+                            knnmt_generated, knnmt_lengths, _ = decoder.generate_beam(
+                                enc1,
+                                len1,
+                                lang1_id,
+                                lang2_id,
+                                beam_size=params.beam_size,
+                                length_penalty=params.length_penalty,
+                                early_stopping=params.early_stopping,
+                                max_len=len_v,
+                                use_knn_store=True
+                            )
                         # print(f'path 2: {generated.shape}')
                     if i == 0:
                         # show 1 evaluation example and the corresponding model generation

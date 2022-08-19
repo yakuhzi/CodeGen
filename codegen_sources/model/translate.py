@@ -347,6 +347,7 @@ class Translator:
                 x2, len2, _ = self.decoder.generate_beam(
                     enc1,
                     len1,
+                    lang1_id,
                     lang2_id,
                     max_len=max_len,
                     early_stopping=False,

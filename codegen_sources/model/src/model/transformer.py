@@ -772,75 +772,17 @@ class TransformerModel(nn.Module):
         else:
             return generated[:cur_len], gen_len
 
-    def predict_next_words(self, features, scores, src_lang_id, tgt_lang_id):
-        k = 16
-        knn_temperature = 10
-        tc_temperature = 2
-        lmbda = 0.5
-
-        src_language = self.id2lang[src_lang_id].split("_")[0]
-        tgt_language = self.id2lang[tgt_lang_id].split("_")[0]
-
-        knn_targets, knn_distances = self.knnmt.get_k_nearest_neighbors(
-            features, 
-            language_pair=f"{src_language}_{tgt_language}", 
-            k=k
-        )
-
-        tc_topk = torch.topk(scores, k)
-        tc_targets = tc_topk[1]
-        tc_scores = tc_topk[0]
-
-        normalized_knn_distances = F.softmax(torch.tensor(knn_distances / knn_temperature * -1), dim=-1)
-        normalized_tc_scores = F.softmax(tc_scores.float() / tc_temperature, dim=-1) # TODO: Add temperature?
-
-        next_words = []
-
-        for batch_index in range(features.size(0)):
-            target_scores = {}
-
-            for target, distance in zip(knn_targets[batch_index], normalized_knn_distances[batch_index]):
-                if target_scores.get(target) is None:
-                    target_scores[target] = distance.item() * lmbda
-                else:
-                    target_scores[target] += distance.item() * lmbda
-
-            for target, distance in zip(tc_targets[batch_index], normalized_tc_scores[batch_index]):
-                if target_scores.get(target.item()) is None:
-                    target_scores[target.item()] = distance.item() * (1 - lmbda)
-                else:
-                    target_scores[target.item()] += distance.item() * (1 - lmbda)
-
-            target_scores = { k: v for k, v in reversed(sorted(target_scores.items(), key=lambda item: item[1])) }
-            target = max(target_scores, key=target_scores.get)
-            tc_greedy_target = tc_targets[batch_index][0].item()
-            next_words.append(target)
-            
-            # print("\n")
-            # print("KNN", knn_targets[batch_index][:5], [self.dico[t.item()] for t in knn_targets[batch_index][:5]], knn_distances[batch_index][:3], normalized_knn_distances[batch_index][:5])
-            # print("SCORES", tc_targets[batch_index][:5], [self.dico[t.item()] for t in tc_targets[batch_index][:5]], tc_scores[batch_index][:3], normalized_tc_scores[batch_index][:5])
-            # print("PRED", target, self.dico[target], tc_greedy_target, self.dico[tc_greedy_target])
-            # print("\n")
-
-            if target != tc_greedy_target:
-                # print("\n")
-                print(f"KNNMT: Used '{self.dico[target]}' ({target}) instead of '{self.dico[tc_greedy_target]}' ({tc_greedy_target})")
-                # print("KNN", knn_targets[batch_index][:3], [self.dico[t.item()] for t in knn_targets[batch_index][:3]], knn_distances[batch_index][:3], normalized_knn_distances[batch_index][:3])
-                # print("SCORES", tc_targets[batch_index][:3], [self.dico[t.item()] for t in tc_targets[batch_index][:3]], tc_scores[batch_index][:3], normalized_tc_scores[batch_index][:3])
-                # print("PRED", target, self.dico[target], tc_greedy_target, self.dico[tc_greedy_target])
-                # print("\n")
-
-        return torch.tensor(next_words).cuda()
-
     def generate_beam(
         self,
         src_enc,
         src_len,
+        src_lang_id,
         tgt_lang_id,
         beam_size,
         length_penalty,
         early_stopping,
         max_len=200,
+        use_knn_store=False
     ):
         """
         Decode a sentence given initial start.
@@ -946,13 +888,15 @@ class TransformerModel(nn.Module):
 
             # select next words with scores
             # (bs * beam_size, n_words)
-            _scores = scores + beam_scores[:, None].expand_as(scores)
+            scores = scores + beam_scores[:, None].expand_as(scores)
             # (bs, beam_size * n_words)
-            _scores = _scores.view(bs, beam_size * n_words)
+            _scores = scores.view(bs, beam_size * n_words)
 
-            next_scores, next_words = torch.topk(
-                _scores, 2 * beam_size, dim=1, largest=True, sorted=True
-            )
+            if use_knn_store:
+                next_scores, next_words = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id, beam_size)
+            else:
+                next_scores, next_words = torch.topk(_scores, 2 * beam_size, dim=1, largest=True, sorted=True)
+
             assert next_scores.size() == next_words.size() == (bs, 2 * beam_size)
 
             # next batch beam content
@@ -977,7 +921,6 @@ class TransformerModel(nn.Module):
 
                 # next words for this sentence
                 for idx, value in zip(next_words[sent_id], next_scores[sent_id]):
-
                     # get beam and word IDs
                     beam_id = idx // n_words
                     word_id = idx % n_words
@@ -1019,6 +962,7 @@ class TransformerModel(nn.Module):
             # re-order batch and internal states
             generated = generated[:, beam_idx]
             generated[cur_len] = beam_words
+
             for k in self.cache.keys():
                 if k != "slen":
                     self.cache[k] = (
@@ -1047,16 +991,15 @@ class TransformerModel(nn.Module):
         best = []
 
         for i, hypotheses in enumerate(generated_hyps):
-            sorted_hyps = [
-                h[1] for h in sorted(hypotheses.hyp, key=lambda x: x[0], reverse=True)
-            ]
-            for j, hyp in enumerate(sorted_hyps):
-                tgt_len[i, j] = len(hyp) + 1
-                # +1 for the <EOS> symbol
+            sorted_hyps = [h[1] for h in sorted(hypotheses.hyp, key=lambda x: x[0], reverse=True)]
             best.append(sorted_hyps)
+
+            for j, hyp in enumerate(sorted_hyps):
+                tgt_len[i, j] = len(hyp) + 1 # +1 for the <EOS> symbol
 
         # generate target batch
         decoded = src_len.new(tgt_len.max().item(), beam_size, bs).fill_(self.pad_index)
+
         for i, hypo_list in enumerate(best):
             for hyp_index, hypo in enumerate(hypo_list):
                 decoded[: len(hypo), hyp_index, i] = hypo
@@ -1064,9 +1007,88 @@ class TransformerModel(nn.Module):
 
         # sanity check
         assert (decoded == self.eos_index).sum() == 2 * beam_size * bs
-
         return decoded, tgt_len, sorted([h[0] for h in hypotheses.hyp], reverse=True)
 
+    def predict_next_words(self, features, scores, src_lang_id, tgt_lang_id, beam_size=1):
+        k = 16 # * beam_size
+        knn_temperature = 10
+        tc_temperature = 2
+        lmbda = 0.5
+
+        src_language = self.id2lang[src_lang_id].split("_")[0]
+        tgt_language = self.id2lang[tgt_lang_id].split("_")[0]
+
+        knn_targets, knn_distances = self.knnmt.get_k_nearest_neighbors(
+            features, 
+            language_pair=f"{src_language}_{tgt_language}", 
+            k=k
+        )
+
+        tc_topk = torch.topk(scores, k)
+        tc_targets = tc_topk[1]
+        tc_scores = tc_topk[0]
+
+        normalized_knn_distances = F.softmax(torch.tensor(knn_distances / knn_temperature * -1), dim=-1)
+        normalized_tc_scores = F.softmax(tc_scores.float() / tc_temperature, dim=-1) # TODO: Add temperature?
+
+        next_scores = []
+        next_words = []
+        batch_size = int(features.size(0) / beam_size)
+
+        for batch_index in range(batch_size):
+            target_scores = {}
+
+            beam_knn_targets = []
+            beam_knn_distances = []
+
+            beam_tc_targets = []
+            beam_tc_scores = []
+
+            for i in range(beam_size):
+                index = batch_index * beam_size + i
+                offset = self.n_words * i
+
+                beam_knn_targets += [target + offset for target in knn_targets[index]]
+                beam_knn_distances += normalized_knn_distances[index]
+
+                beam_tc_targets += [target + offset for target in tc_targets[index]]
+                beam_tc_scores += normalized_tc_scores[index]
+
+            for target, distance in zip(beam_knn_targets, beam_knn_distances):
+                if target_scores.get(target) is None:
+                    target_scores[target] = distance.item() * lmbda
+                else:
+                    target_scores[target] += distance.item() * lmbda
+
+            for target, distance in zip(beam_tc_targets, beam_tc_scores):
+                if target_scores.get(target.item()) is None:
+                    target_scores[target.item()] = distance.item() * (1 - lmbda)
+                else:
+                    target_scores[target.item()] += distance.item() * (1 - lmbda)
+
+            best_targets = sorted(target_scores, key=target_scores.get, reverse=True)[:beam_size * 2]
+
+            if beam_size == 1:
+                next_words.append(best_targets[0])
+                tc_greedy_target = tc_targets[batch_index][0].item()
+
+                if best_targets[0] != tc_greedy_target:
+                    print(f"KNNMT: Used '{self.dico[best_targets[0]]}' ({best_targets[0]}) instead of '{self.dico[tc_greedy_target]}' ({tc_greedy_target})")
+            else:
+                best_scores = [target_scores[target] for target in best_targets]
+                next_scores.append(best_scores)
+                next_words.append(best_targets)
+            
+            # print("\n")
+            # print("KNN", knn_targets[batch_index][:5], [self.dico[t.item()] for t in knn_targets[batch_index][:5]], knn_distances[batch_index][:3], normalized_knn_distances[batch_index][:5])
+            # print("SCORES", tc_targets[batch_index][:5], [self.dico[t.item()] for t in tc_targets[batch_index][:5]], tc_scores[batch_index][:3], normalized_tc_scores[batch_index][:5])
+            # print("PRED", target, self.dico[target], tc_greedy_target, self.dico[tc_greedy_target])
+            # print("\n")
+
+        if beam_size == 1:
+            return torch.tensor(next_words).cuda()
+        else:
+            return torch.tensor(next_scores).cuda(), torch.tensor(next_words).cuda()
 
 class BeamHypotheses(object):
     def __init__(self, n_hyp, max_len, length_penalty, early_stopping):

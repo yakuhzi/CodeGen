@@ -1715,6 +1715,7 @@ class EncDecTrainer(Trainer):
     def generate_parallel_examples(
         self, x1, len1, enc1, lang1, lang2, sent_ids, params
     ):
+        lang1_id = params.lang2id[lang1]
         lang2_id = params.lang2id[lang2]
         decoder = (
             self.decoder[lang2_id] if params.separate_decoders else self.decoder[0]
@@ -1733,6 +1734,7 @@ class EncDecTrainer(Trainer):
             x2, len2, _ = decoder.generate_beam(
                 enc1,
                 len1,
+                lang1_id,
                 lang2_id,
                 beam_size=int(params.st_beam_size),
                 length_penalty=params.st_length_penalty,
