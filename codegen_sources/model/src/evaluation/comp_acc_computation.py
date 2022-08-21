@@ -280,10 +280,16 @@ def submit_functions(
             except:
                 results_list.append(("error", "Could not replace function name"))
                 f_name = ""
-                knnmt_f = ""
 
             if f_fill == ref:
                 results_list.append(("success", "identical to gold"))
+
+                if try_id > 0:
+                    print("Fixed function through beam search", id, try_id, f_fill, ref)
+
+                if try_id in replaced_indices:
+                    print("Fixed function through KNNMT", id, try_id, f_fill, ref)
+                    
                 return results_list, i
 
             f = (
@@ -309,7 +315,7 @@ def submit_functions(
 
             if result[0] == "success":
                 if try_id > 0:
-                    print("Fixed function through constrained beam search", id, try_id, f_fill, ref)
+                    print("Fixed function through beam search", id, try_id, f_fill, ref)
 
                 if try_id in replaced_indices:
                     print("Fixed function through KNNMT", id, try_id, f_fill, ref)
@@ -402,7 +408,7 @@ def eval_function_output(
             for j, function in enumerate(beam_functions):
                 if not has_compile_errors(function, tgt_language=lang):
                     if j > 0:
-                        print("Replaced function", j)
+                        print("Replaced function with first compiling function in beam", j)
                     beam_functions = beam_functions[:j + 1]
                     functions[i] = beam_functions
                     has_replaced = True
@@ -419,7 +425,7 @@ def eval_function_output(
         # For each beam in tuple
         for index, function in enumerate(f):
             if knnmt_f is not None and has_compile_errors(function, tgt_language=lang):
-                print("REPLACED", i, f[index], knnmt_f[index])
+                print("Replaced function with KNNMT function", i, f[index], knnmt_f[index])
                 replaced_indices.append(index)
                 f = list(f)
                 f[index] = knnmt_f[index]
