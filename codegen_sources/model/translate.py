@@ -139,7 +139,7 @@ class Translator:
     def get_features(
         self, 
         input_code: str, 
-        target_code: Optional[str], 
+        target_code: str, 
         src_language: str, 
         tgt_language: str, 
         predict_single_token: bool=False,
@@ -223,7 +223,7 @@ class Translator:
                 target_tokens.extend(wid)
 
             targets = x2.squeeze()
-            return features, targets, target_tokens
+            return features, targets, target_tokens, input_code, output_code
 
     def translate(
         self,

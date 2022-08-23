@@ -43,7 +43,7 @@ class GPUThread(threading.Thread):
 
         # Obtain features and targets from decoder
         for src_sample, tgt_sample in self.chunk:
-            decoder_features, targets, target_tokens = translator.get_features(
+            decoder_features, targets, target_tokens, input_code, output_code = translator.get_features(
                 input_code=src_sample, 
                 target_code=tgt_sample, 
                 src_language=src_language, 
@@ -51,7 +51,7 @@ class GPUThread(threading.Thread):
                 tokenized=not self.is_validation
             )
 
-            self.knnmt.add_to_datastore(decoder_features, targets, self.language_pair)
+            self.knnmt.add_to_datastore(decoder_features, targets, input_code, output_code, self.language_pair)
             self.pbar.update(1)
 
 

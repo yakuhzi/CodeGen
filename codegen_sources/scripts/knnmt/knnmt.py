@@ -21,9 +21,10 @@ class KNNMT:
         self.faiss_index = {}
         self.datastore_keys = {}
         self.datastore_values = {}
+        self.datastore_inputs = {}
 
 
-    def get_k_nearest_neighbors(self, features, language_pair: str, k: int = 5):
+    def get_k_nearest_neighbors(self, features, language_pair: str, k: int = 5, with_inputs: bool=False):
         faiss_index = self._load_faiss_index(language_pair)
         datastore_values = self._load_values(language_pair)
 
@@ -32,30 +33,42 @@ class KNNMT:
         distances, knns = faiss_index.search(input, k)
         values = [[datastore_values[index] for index in k] for k in knns]
 
-        return values, distances
+        if not with_inputs:
+            return values, distances
+
+        datastore_inputs = self._load_inputs(language_pair)
+        inputs = [[datastore_inputs[index] for index in k] for k in knns]
+        return values, distances, inputs
 
 
-    def add_to_datastore(self, features, targets, language_pair: str):
+    def add_to_datastore(self, features, targets, input_code: str, output_code: str, language_pair: str):
+        output_code = output_code.split(" ")
+        index = 1
+
         keys = []
         values = []
+        inputs = []
 
         for features, target in zip(features, targets[1:]):
             keys.append(features.detach().cpu().numpy().astype(np.float32))
             values.append(target.cpu().numpy().astype(np.int))
+            inputs.append((input_code, ' '.join(output_code[1:index])))
+            index += 1
 
         keys = np.array(keys, dtype=np.float32)
         values = np.array(values, dtype=np.int)
+        inputs = np.array(inputs, dtype=np.str)
 
-        if keys.shape[0] != values.shape[0]:
-            print(keys.shape, values.shape, targets)
-
+        assert keys.shape[0] == values.shape[0] == inputs.shape[0]
         self.lock.acquire()
 
         datastore_keys = self._load_keys(language_pair)
         datastore_values = self._load_values(language_pair)
+        datastore_inputs = self._load_inputs(language_pair)
 
         self.datastore_keys[language_pair] = np.concatenate((datastore_keys, keys), axis=0)
         self.datastore_values[language_pair] = np.concatenate((datastore_values, values), axis=0)
+        self.datastore_inputs[language_pair] = np.concatenate((datastore_inputs, inputs), axis=0)
 
         self.lock.release()
 
@@ -65,19 +78,24 @@ class KNNMT:
 
         keys_path = f"{DATASTORE_PATH}/keys_{language_pair}.npy"
         values_path = f"{DATASTORE_PATH}/values_{language_pair}.npy"
+        inputs_path = f"{DATASTORE_PATH}/inputs_{language_pair}.npy"
 
         os.makedirs(os.path.dirname(keys_path), exist_ok=True)
         os.makedirs(os.path.dirname(values_path), exist_ok=True)
+        os.makedirs(os.path.dirname(inputs_path), exist_ok=True)
 
         datastore_keys = self.datastore_keys[language_pair]
         datastore_values = self.datastore_values[language_pair]
+        datastore_inputs = self.datastore_inputs[language_pair]
         
         # Save datastore
         print("Save Keys:", datastore_keys.shape)
         print("Save Values:", datastore_values.shape)
+        print("Save Inputs:", datastore_inputs.shape)
 
         np.save(keys_path, datastore_keys)
         np.save(values_path, datastore_values)
+        np.save(inputs_path, datastore_inputs)
 
         
     def train_datastore(self, language_pair):
@@ -143,6 +161,23 @@ class KNNMT:
             datastore_values = np.zeros((0, )).astype('int')
 
         return datastore_values
+
+
+    def _load_inputs(self, language_pair: str):
+        inputs_path = f"{DATASTORE_PATH}/inputs_{language_pair}.npy"
+
+        if self.datastore_inputs.get(language_pair) is not None:
+            return self.datastore_inputs[language_pair]
+
+        if os.path.exists(inputs_path):
+            print(f"Loading Datastore Inputs for '{language_pair}'")
+            datastore_inputs = np.load(inputs_path)
+            self.datastore_inputs[language_pair] = datastore_inputs
+            print("Values: ", datastore_inputs.shape)
+        else:
+            datastore_inputs = np.empty((0, 2)).astype('str')
+
+        return datastore_inputs
 
 
     def _load_faiss_index(self, language_pair: str, retrain: bool=False):

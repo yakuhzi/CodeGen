@@ -18,6 +18,7 @@ def output_sample(knnmt: KNNMT, language_pair: str, data_index: int):
     source_functions = extract_functions(f"{DATASET_PATH}/transcoder_test.{src_language}.tok")
     source = translator.tokenize(source_functions[data_index], src_language)
     generated = ""
+    inputs = []
 
     # source = translator.tokenize("int summingSeries ( long n ) { return pow ( n , 2 ) ; }", src_language)
     # file = open("codegen_sources/scripts/test/test.cpp", "r")
@@ -25,11 +26,13 @@ def output_sample(knnmt: KNNMT, language_pair: str, data_index: int):
     # source = translator.tokenize("float sumOfSeries ( int n ) { return ( 0.666 ) * ( 1 - 1 / pow ( 10 , n ) ) ; }", src_language)
 
     while "</s>" not in generated and len(generated.split()) < 200:
-        prediction = predict_next_token(knnmt, translator, src_language, tgt_language, source, generated)
+        prediction, input = predict_next_token(knnmt, translator, src_language, tgt_language, source, generated)
         generated += " " + prediction
+        inputs.append(input)
 
     print("Source:", source)
     print("Generated:", generated)
+    print("Inputs", inputs)
     
 
 def predict_next_token(
@@ -38,9 +41,9 @@ def predict_next_token(
     src_language: str, 
     tgt_language: str, 
     source: str, 
-    generated: str,
+    generated: str
 ):
-    decoder_features, targets, target_tokens = translator.get_features(
+    decoder_features, targets, target_tokens, _, _ = translator.get_features(
         input_code=source,
         target_code=generated,
         src_language=src_language,
@@ -51,14 +54,13 @@ def predict_next_token(
 
     language_pair = f"{src_language}_{tgt_language}"
     features = decoder_features[-1].unsqueeze(0)
-    knns, distances = knnmt.get_k_nearest_neighbors(features, language_pair)
+    knns, distances, inputs = knnmt.get_k_nearest_neighbors(features, language_pair, with_inputs=True)
     tokens = [translator.get_token(id) for id in knns[0]]
 
     # print("Targets", targets, target_tokens)
     # print("Predictions", knns, tokens, distances)
 
-    return tokens[0]
-
+    return tokens[0], inputs[0][0]
 
 def add_sample(knnmt: KNNMT, language_pair: str, data_index: int):
     src_language, tgt_language = language_pair.split("_")[0], language_pair.split("_")[1]
@@ -93,7 +95,9 @@ def add_sample(knnmt: KNNMT, language_pair: str, data_index: int):
 knnmt = KNNMT()
 
 language_pair = "cpp_java"
-output_sample(knnmt, language_pair, 406)
+output_sample(knnmt, language_pair, 229)
+# knnmt.train_datastore(language_pair)
 
-# add_sample(knnmt, language_pair, 7)
-# output_sample(knnmt, language_pair, 7)
+# output_sample(knnmt, language_pair, 41)
+# add_sample(knnmt, language_pair, 41)
+# output_sample(knnmt, language_pair, 41)
