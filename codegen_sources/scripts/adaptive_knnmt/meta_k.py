@@ -45,6 +45,7 @@ class MetaK(pl.LightningModule):
         knns, distances = self.knnmt.get_k_nearest_neighbors(features, self.hparams.language_pair, k=self.hparams.k)
         distinct_neighbors = [[len(set(indices[:i])) for i in range(1, self.hparams.k + 1)] for indices in knns]
 
+        knns = torch.LongTensor(knns).to(self.device)
         distances = torch.FloatTensor(distances).to(self.device)
         distinct_neighbors = torch.FloatTensor(distinct_neighbors).to(self.device)
 
@@ -66,13 +67,15 @@ class MetaK(pl.LightningModule):
             normalized_distances = torch.softmax(distances_i / self.hparams.temperature * -1, dim=-1) # [B, k]
 
             prob = k_soft_prob[:, i] # [B]
+            scores = (normalized_distances.T * prob).T # [B, k]
+            scatter(src=scores, out=knn_tgt_prob, index=knns[:, :k], dim=-1)
 
-            for batch_index, p in enumerate(prob):
-                scores = normalized_distances[batch_index] * p # [k]
+            # for batch_index, p in enumerate(prob):
+            #     scores = normalized_distances[batch_index] * p # [k]
 
-                for index, score in enumerate(scores):
-                    tgt_index = knns[batch_index][index]
-                    knn_tgt_prob[batch_index][tgt_index] += score
+            #     for index, score in enumerate(scores):
+            #         tgt_index = knns[batch_index][index]
+            #         knn_tgt_prob[batch_index][tgt_index] += score
         
         # distances = distances.unsqueeze(-2).expand(B, R_K, K) # [B, R_K, K]
         # distances = distances / self.hparams.temperature # [B, R_K, K]
