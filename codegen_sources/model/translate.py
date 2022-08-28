@@ -200,9 +200,8 @@ class Translator:
             x2 = torch.LongTensor([self.dico.index(w) for w in output_code.split()])[:, None]
             targets, len2 = to_cuda(x2, len2)
             
-            x2, len2 = to_cuda(x2, len2)
             # Decode
-            x2, len2, features = self.decoder.generate(
+            x2, len2, features, scores = self.decoder.generate(
                 enc1,
                 len1,
                 lang1_id,
@@ -223,7 +222,7 @@ class Translator:
                 target_tokens.extend(wid)
 
             targets = x2.squeeze()
-            return features, targets, target_tokens, input_code, output_code
+            return features, scores, targets, target_tokens, input_code, output_code
 
     def translate(
         self,

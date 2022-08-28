@@ -25,7 +25,7 @@ def output_sample(knnmt: KNNMT, language_pair: str, data_index: int):
     # source = translator.tokenize("".join(file.readlines()), src_language)
     # source = translator.tokenize("float sumOfSeries ( int n ) { return ( 0.666 ) * ( 1 - 1 / pow ( 10 , n ) ) ; }", src_language)
 
-    while "</s>" not in generated and len(generated.split()) < 200:
+    while "</s>" not in generated and len(generated.split(" ")) < 200:
         prediction, input = predict_next_token(knnmt, translator, src_language, tgt_language, source, generated)
         generated += " " + prediction
         inputs.append(input)
@@ -43,7 +43,7 @@ def predict_next_token(
     source: str, 
     generated: str
 ):
-    decoder_features, targets, target_tokens, _, _ = translator.get_features(
+    decoder_features, _, targets, target_tokens, _, _ = translator.get_features(
         input_code=source,
         target_code=generated,
         src_language=src_language,
@@ -80,7 +80,7 @@ def add_sample(knnmt: KNNMT, language_pair: str, data_index: int):
     )
 
     # Obtain features and targets from decoder
-    decoder_features, targets, target_tokens = translator.get_features(
+    decoder_features, _, targets, target_tokens = translator.get_features(
         input_code=src_sample, 
         target_code=tgt_sample, 
         src_language=src_language, 

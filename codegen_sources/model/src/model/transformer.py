@@ -600,7 +600,8 @@ class TransformerModel(nn.Module):
         return_features=False,
         targets=None,
         predict_single_token=False,
-        use_knn_store=False
+        use_knn_store=False,
+        use_adaptive_knn=False
     ):
         """
         Decode a sentence given initial start.
@@ -663,6 +664,7 @@ class TransformerModel(nn.Module):
         decoder_attention_weights = []
         cross_attention_weights = []
         features = []
+        all_scores = []
 
         while cur_len < global_max_len:
             # compute word scores
@@ -724,13 +726,14 @@ class TransformerModel(nn.Module):
             tensor = tensor.data[-1, :, :].type_as(src_enc)  # (bs, dim)
             features.append(tensor.squeeze())
             scores = self.pred_layer.get_scores(tensor)  # (bs, n_words)
+            all_scores.append(scores.squeeze(0))
 
             # select next words: sample or greedy
             if targets is not None and not (predict_single_token and cur_len == len(targets)):
                 next_words = targets[cur_len]
             elif sample_temperature is None:
                 if use_knn_store:
-                    next_words = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id)
+                    next_words, replaced_indices = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id, use_adaptive_knn)
                 else:
                     next_words = torch.topk(scores, 1)[1].squeeze(1)
             else:
@@ -768,7 +771,7 @@ class TransformerModel(nn.Module):
         if return_weights:
             return generated[:cur_len], gen_len, decoder_attention_weights, cross_attention_weights
         elif return_features:
-            return generated[:cur_len], gen_len, features
+            return generated[:cur_len], gen_len, features, all_scores
         else:
             return generated[:cur_len], gen_len
 
@@ -1009,7 +1012,7 @@ class TransformerModel(nn.Module):
         assert (decoded == self.eos_index).sum() == 2 * beam_size * bs
         return decoded, tgt_len, sorted([h[0] for h in hypotheses.hyp], reverse=True)
 
-    def predict_next_words(self, features, scores, src_lang_id, tgt_lang_id, beam_size=1):
+    def predict_next_words(self, features, scores, src_lang_id: int, tgt_lang_id: int, beam_size: int=1, use_adaptive_knn: bool=False):
         k = 16 # * beam_size
         knn_temperature = 10
         tc_temperature = 2
@@ -1033,6 +1036,7 @@ class TransformerModel(nn.Module):
 
         next_scores = []
         next_words = []
+        replaced_indices = []
         batch_size = int(features.size(0) / beam_size)
 
         for batch_index in range(batch_size):
@@ -1074,6 +1078,7 @@ class TransformerModel(nn.Module):
 
                 if best_targets[0] != tc_greedy_target:
                     print(f"KNNMT: Used '{self.dico[best_targets[0]]}' ({best_targets[0]}) instead of '{self.dico[tc_greedy_target]}' ({tc_greedy_target})")
+                    replaced_indices.append(batch_index)
             else:
                 best_scores = [target_scores[target] for target in best_targets]
                 next_scores.append(best_scores)
@@ -1086,7 +1091,7 @@ class TransformerModel(nn.Module):
             # print("\n")
 
         if beam_size == 1:
-            return torch.tensor(next_words).cuda()
+            return torch.tensor(next_words).cuda(), replaced_indices
         else:
             return torch.tensor(next_scores).cuda(), torch.tensor(next_words).cuda()
 
