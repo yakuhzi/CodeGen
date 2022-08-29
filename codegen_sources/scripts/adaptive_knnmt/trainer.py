@@ -27,7 +27,6 @@ data_module = DataModule(
     batch_size=arguments.batch_size, 
     samples=arguments.samples, 
     dataset_dir=arguments.dataset_dir, 
-    datastore_dir=arguments.datastore_dir, 
     model_dir=arguments.model_dir, 
     cache_dir=arguments.cache_dir,
     bpe_path=arguments.bpe_path, 
@@ -35,14 +34,13 @@ data_module = DataModule(
 )
 
 model = MetaK(
-    batch_size=arguments.batch_size, 
-    epochs=arguments.epochs, 
-    learning_rate=learning_rate, 
-    k=arguments.k, 
-    hidden_size=arguments.hidden_size, 
+    learning_rate=learning_rate,
+    max_k=arguments.max_k, 
+    hidden_size=arguments.hidden_size,
     temperature=arguments.temperature,
     vocab_size=arguments.vocab_size,
-    language_pair=arguments.language_pair
+    language_pair=arguments.language_pair,
+    knnmt_dir=arguments.knnmt_dir
 )
 
 log_dir = os.path.join(arguments.log_dir, arguments.language_pair)
@@ -61,5 +59,5 @@ trainer = Trainer(
     callbacks=[checkpoint_callback]
 )
 
-trainer.fit(model, data_module, ckpt_path=arguments.ckpt_path)
+trainer.fit(model, data_module, ckpt_path=arguments.checkpoint_path)
 trainer.test(model, data_module)

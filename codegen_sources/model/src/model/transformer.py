@@ -322,7 +322,7 @@ class TransformerModel(nn.Module):
         "attention_dropout",
     ]
 
-    def __init__(self, params, dico, is_encoder, with_output, use_knn_store: bool=False):
+    def __init__(self, params, dico, is_encoder, with_output, knnmt_dir: Optional[str]=None):
         """
         Transformer model (encoder or decoder).
         """
@@ -346,10 +346,8 @@ class TransformerModel(nn.Module):
         assert len(self.dico) == self.n_words
         assert len(self.id2lang) == len(self.lang2id) == self.n_langs
 
-        self.use_knn_store = use_knn_store
-
-        if use_knn_store:
-            self.knnmt = KNNMT()
+        if knnmt_dir is not None:
+            self.knnmt = KNNMT(params.knnmt_dir)
 
         # model parameters
         self.dim = (
@@ -899,7 +897,7 @@ class TransformerModel(nn.Module):
             _scores = scores.view(bs, beam_size * n_words)
 
             if use_knn_store:
-                next_scores, next_words = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id, beam_size)
+                next_scores, next_words = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id, beam_size, meta_k)
             else:
                 next_scores, next_words = torch.topk(_scores, 2 * beam_size, dim=1, largest=True, sorted=True)
 

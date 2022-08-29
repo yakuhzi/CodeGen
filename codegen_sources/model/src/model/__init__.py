@@ -6,6 +6,7 @@
 #
 import math
 import os
+from typing import Optional
 import torch
 
 from logging import getLogger
@@ -148,7 +149,7 @@ def set_pretrain_emb(model, dico, word2id, embeddings, gpu):
 
 
 @torch.no_grad()
-def build_model(params, dico, gpu=True, use_knn_store: bool=False):
+def build_model(params, dico, gpu=True, knnmt_dir: Optional[str]=None):
     """
     Build model.
     """
@@ -183,12 +184,12 @@ def build_model(params, dico, gpu=True, use_knn_store: bool=False):
 
         if params.separate_decoders:
             decoders = [
-                TransformerModel(params, dico, is_encoder=False, with_output=True, use_knn_store=use_knn_store)
+                TransformerModel(params, dico, is_encoder=False, with_output=True, knnmt_dir=knnmt_dir)
                 for _ in params.lang2id.values()
             ]
         else:
             decoders = [
-                TransformerModel(params, dico, is_encoder=False, with_output=True, use_knn_store=use_knn_store)
+                TransformerModel(params, dico, is_encoder=False, with_output=True, knnmt_dir=knnmt_dir)
             ]
 
         for layer in range(params.n_layers_decoder):

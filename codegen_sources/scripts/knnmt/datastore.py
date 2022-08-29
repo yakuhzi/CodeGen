@@ -7,6 +7,8 @@ import numpy as np
 import threading
 from pycuda import driver
 
+DATASET_PATH = "dump/offline_dataset"
+VALIDATION_SET_PATH = "dataset/transcoder/test"
 LANGUAGE_PAIRS = [
     "cpp_java",
     "cpp_python",
@@ -107,12 +109,12 @@ def created_mixed_datastore(knnmt: KNNMT):
         np.save(f"dump/knnmt_mixed/datastore/values_{language_pair}.npy", datastore_values)
 
 
-knnmt = KNNMT()
+knnmt = KNNMT("dump/knnmt")
 
-# parallel_functions = load_parallel_functions()
+# parallel_functions = load_parallel_functions(DATASET_PATH)
 # add_to_datastore(knnmt, parallel_functions)
 
-# validation_functions = load_validation_functions()
+# validation_functions = load_validation_functions(VALIDATION_SET_PATH)
 # add_to_datastore(knnmt, validation_functions, is_validation=True)
 
 # created_mixed_datastore(knnmt)

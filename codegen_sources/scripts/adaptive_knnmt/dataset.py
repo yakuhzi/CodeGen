@@ -4,12 +4,10 @@ import random
 import numpy as np
 
 from pathlib import Path
-from hashlib import sha256
 from torch.utils.data import random_split
 from typing import List, Tuple
 from tqdm import tqdm
 from codegen_sources.model.translate import Translator
-from codegen_sources.scripts.knnmt.knnmt import KNNMT
 
 SEED=2022
 
@@ -18,29 +16,24 @@ class Dataset(torch.utils.data.Dataset):
 
     def __init__(
         self,
-        batch_size: int,
         parallel_functions: str, 
         cache_dir: str,
-        knnmt: KNNMT, 
         translator: Translator, 
         language_pair: str, 
         phase: str, 
         samples: int
     ):
-        self.batch_size = batch_size
         self.parallel_functions = parallel_functions
         self.cache_dir = cache_dir
+        self.translator = translator
         self.language_pair = language_pair
         self.phase = phase
         self.samples = samples
 
-        self.knnmt = knnmt
-        self.translator = translator
-
         self.src_language = language_pair.split("_")[0]
         self.tgt_language = language_pair.split("_")[1]
 
-        self.features, self.scores, self.targets = self.make_dataset(parallel_functions, samples)
+        self.features, self.scores, self.targets = self.make_dataset(parallel_functions)
 
     def __len__(self) -> int:
         return self.samples # len(self.features) - len(self.features) % self.batch_size
@@ -55,9 +48,9 @@ class Dataset(torch.utils.data.Dataset):
 
         return features, scores, target
 
-    def make_dataset(self, parallel_functions, samples: int) -> Tuple[List[str], List[str]]:
+    def make_dataset(self, parallel_functions) -> Tuple[list, list, List[str]]:
         print(f"Building dataset for '{self.phase}'")
-        configuration = f"{self.phase}_{SEED}_{samples}"
+        configuration = f"{self.phase}_{SEED}_{self.samples}"
         cache_dir = os.path.join(self.cache_dir, self.language_pair, configuration)
 
         if os.path.exists(cache_dir):
@@ -66,11 +59,11 @@ class Dataset(torch.utils.data.Dataset):
             scores = np.load(os.path.join(cache_dir, "scores.npy"))
             targets = np.load(os.path.join(cache_dir, "targets.npy"))
 
-            assert len(features) == len(scores) == len(targets) == samples
+            assert len(features) == len(scores) == len(targets) == self.samples
             return features, scores, targets
 
         dataset_size = len(parallel_functions)
-        split_sizes = [int(dataset_size / 3), int(dataset_size / 3), int(dataset_size / 3)]
+        split_sizes = [int(dataset_size * 0.8), int(dataset_size * 0.1), int(dataset_size * 0.1)]
 
         if split_sizes[0] + split_sizes[1] + split_sizes[2] != len(parallel_functions):
             split_sizes[0] += 1
@@ -88,7 +81,7 @@ class Dataset(torch.utils.data.Dataset):
         elif self.phase == "test":
             parallel_functions = test_set
 
-        parallel_functions = random.Random(SEED).sample(list(parallel_functions), int(samples / 10))
+        parallel_functions = random.Random(SEED).sample(list(parallel_functions), int(self.samples / 10))
 
         features = []
         scores = []
@@ -115,14 +108,14 @@ class Dataset(torch.utils.data.Dataset):
 
                 pbar.update(1)
 
-        features = np.array(random.Random(SEED).sample(features, samples))
-        scores = np.array(random.Random(SEED).sample(scores, samples))
-        targets = np.array(random.Random(SEED).sample(targets, samples))
+        features = np.array(random.Random(SEED).sample(features, self.samples))
+        scores = np.array(random.Random(SEED).sample(scores, self.samples))
+        targets = np.array(random.Random(SEED).sample(targets, self.samples))
 
         Path(cache_dir).mkdir(parents=True, exist_ok=True)
         np.save(os.path.join(cache_dir, "features.npy"), features)
         np.save(os.path.join(cache_dir, "scores.npy"), scores)
         np.save(os.path.join(cache_dir, "targets.npy"), targets)
 
-        assert len(features) == len(scores) == len(targets) == samples
+        assert len(features) == len(scores) == len(targets) == self.samples
         return features, scores, targets

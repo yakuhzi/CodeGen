@@ -3,8 +3,6 @@ import numpy as np
 import faiss
 import threading
 
-DATASTORE_PATH = "dump/knnmt/datastore"
-FAISS_INDEX_PATH = "dump/knnmt/faiss"
 EMBEDDING_DIMENSION = 1024
 # CLUSTERS = 4096
 CLUSTERS = 512
@@ -15,13 +13,16 @@ SEED = 1
 
 class KNNMT:
 
-    def __init__(self):
+    def __init__(self, knnmt_dir: str):
         self.lock = threading.Lock()
 
         self.faiss_index = {}
         self.datastore_keys = {}
         self.datastore_values = {}
         self.datastore_inputs = {}
+
+        self.datastore_path = os.path.join(knnmt_dir, "datastore")
+        self.faiss_index_path = os.path.join(knnmt_dir, "faiss")
 
 
     def get_k_nearest_neighbors(self, features, language_pair: str, k: int = 5, with_inputs: bool=False):
@@ -76,9 +77,9 @@ class KNNMT:
     def save_datastore(self, language_pair: str):
         print(f"Saving Datastore for '{language_pair}'")
 
-        keys_path = f"{DATASTORE_PATH}/keys_{language_pair}.npy"
-        values_path = f"{DATASTORE_PATH}/values_{language_pair}.npy"
-        inputs_path = f"{DATASTORE_PATH}/inputs_{language_pair}.npy"
+        keys_path = f"{self.datastore_path}/keys_{language_pair}.npy"
+        values_path = f"{self.datastore_path}/values_{language_pair}.npy"
+        inputs_path = f"{self.datastore_path}/inputs_{language_pair}.npy"
 
         os.makedirs(os.path.dirname(keys_path), exist_ok=True)
         os.makedirs(os.path.dirname(values_path), exist_ok=True)
@@ -121,7 +122,7 @@ class KNNMT:
         gpu_index.add_with_ids(keys.astype(np.float32), np.arange(keys.shape[0]))
 
         # Write faiss index
-        faiss_path = f"{FAISS_INDEX_PATH}/{language_pair}.faiss"
+        faiss_path = f"{self.faiss_index_path}/{language_pair}.faiss"
 
         if not os.path.exists(faiss_path):
             os.makedirs(os.path.dirname(faiss_path), exist_ok=True)
@@ -130,7 +131,7 @@ class KNNMT:
 
 
     def _load_keys(self, language_pair: str):
-        keys_path = f"{DATASTORE_PATH}/keys_{language_pair}.npy"
+        keys_path = f"{self.datastore_path}/keys_{language_pair}.npy"
 
         if self.datastore_keys.get(language_pair) is not None:
             return self.datastore_keys[language_pair]
@@ -147,7 +148,7 @@ class KNNMT:
 
 
     def _load_values(self, language_pair: str):
-        values_path = f"{DATASTORE_PATH}/values_{language_pair}.npy"
+        values_path = f"{self.datastore_path}/values_{language_pair}.npy"
 
         if self.datastore_values.get(language_pair) is not None:
             return self.datastore_values[language_pair]
@@ -164,7 +165,7 @@ class KNNMT:
 
 
     def _load_inputs(self, language_pair: str):
-        inputs_path = f"{DATASTORE_PATH}/inputs_{language_pair}.npy"
+        inputs_path = f"{self.datastore_path}/inputs_{language_pair}.npy"
 
         if self.datastore_inputs.get(language_pair) is not None:
             return self.datastore_inputs[language_pair]
@@ -184,7 +185,7 @@ class KNNMT:
         if not retrain and self.faiss_index.get(language_pair) is not None:
             return self.faiss_index[language_pair]
 
-        faiss_path = f"{FAISS_INDEX_PATH}/{language_pair}.faiss"
+        faiss_path = f"{self.faiss_index_path}/{language_pair}.faiss"
 
         if not retrain and os.path.exists(faiss_path):
             print(f"Loading Faiss Index for '{language_pair}'")

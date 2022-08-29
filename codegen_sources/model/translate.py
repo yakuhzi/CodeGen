@@ -82,7 +82,7 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--use_knn_store", type=bool, default=False, help="Use KNN machine translation",
+        "--knnmt_dir", type=str, default=False, help="Path to the KNNMT directory containing the datastore and faiss index",
     )
 
     parser.add_argument(
@@ -93,7 +93,7 @@ def get_parser():
 
 
 class Translator:
-    def __init__(self, model_path, BPE_path, global_model: bool = False, use_knn_store: bool=False, meta_k_checkpoint: Optional[str]=None):
+    def __init__(self, model_path, BPE_path, global_model: bool = False, knnmt_dir: Optional[str]=None, meta_k_checkpoint: Optional[str]=None):
         # reload model
         reloaded = torch.load(model_path, map_location="cpu")
         # change params of the reloaded model so that it will
@@ -114,14 +114,14 @@ class Translator:
         assert self.reloaded_params.unk_index == self.dico.index(UNK_WORD)
         assert self.reloaded_params.mask_index == self.dico.index(MASK_WORD)
 
-        self.use_knn_store = use_knn_store
+        self.use_knn_store = knnmt_dir is not None
 
         if meta_k_checkpoint is not None:
             self.meta_k = MetaK.load_from_checkpoint(meta_k_checkpoint)
             self.meta_k.freeze()
 
         # build model / reload weights (in the build_model method)
-        encoder, decoder = build_model(self.reloaded_params, self.dico, use_knn_store=use_knn_store)
+        encoder, decoder = build_model(self.reloaded_params, self.dico, knnmt_dir=knnmt_dir)
         self.encoder = encoder[0]
         self.decoder = decoder[0]
         self.encoder.cuda()
@@ -450,7 +450,7 @@ if __name__ == "__main__":
     ), f"The target language should be in {SUPPORTED_LANGUAGES}."
 
     # Initialize translator
-    translator = Translator(params.model_path, params.BPE_path, use_knn_store=params.use_knn_store, meta_k_checkpoint=params.meta_k_checkpoint)
+    translator = Translator(params.model_path, params.BPE_path, knnmt_dir=params.knnmt_dir, meta_k_checkpoint=params.meta_k_checkpoint)
 
     # read input code from stdin
     src_sent = []

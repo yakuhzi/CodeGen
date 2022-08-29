@@ -1,37 +1,34 @@
 from hashlib import sha256
 
-DATASET_PATH = "dump/offline_dataset"
-VALIDATION_SET_PATH = "dataset/transcoder/test"
 
-
-def load_parallel_functions(language_pair: str=None):
+def load_parallel_functions(dataset_path: str, language_pair: str=None):
     parallel_functions = {}
 
     if language_pair is None or language_pair == "cpp_java" or language_pair == "java_cpp":
-        cpp_java_cpp_file = open(f"{DATASET_PATH}/cpp_java.cpp.bpe", "r")
+        cpp_java_cpp_file = open(f"{dataset_path}/cpp_java.cpp.bpe", "r")
         cpp_java_cpp_functions = cpp_java_cpp_file.readlines()
 
-        cpp_java_java_file = open(f"{DATASET_PATH}/cpp_java.java.bpe", "r")
+        cpp_java_java_file = open(f"{dataset_path}/cpp_java.java.bpe", "r")
         cpp_java_java_functions = cpp_java_java_file.readlines()
 
         parallel_functions["cpp_java"] = list(zip(cpp_java_cpp_functions, cpp_java_java_functions))
         parallel_functions["java_cpp"] = list(zip(cpp_java_java_functions, cpp_java_cpp_functions))
 
     if language_pair is None or language_pair == "cpp_python" or language_pair == "python_cpp":
-        cpp_python_cpp_file = open(f"{DATASET_PATH}/cpp_python.cpp.bpe", "r")
+        cpp_python_cpp_file = open(f"{dataset_path}/cpp_python.cpp.bpe", "r")
         cpp_python_cpp_functions = cpp_python_cpp_file.readlines()
 
-        cpp_python_python_file = open(f"{DATASET_PATH}/cpp_python.python.bpe", "r")
+        cpp_python_python_file = open(f"{dataset_path}/cpp_python.python.bpe", "r")
         cpp_python_python_functions = cpp_python_python_file.readlines()
 
         parallel_functions["cpp_python"] = list(zip(cpp_python_cpp_functions, cpp_python_python_functions))
         parallel_functions["python_cpp"] = list(zip(cpp_python_python_functions, cpp_python_cpp_functions))
 
     if language_pair is None or language_pair == "java_python" or language_pair == "python_java":
-        java_python_java_file = open(f"{DATASET_PATH}/java_python.java.bpe", "r")
+        java_python_java_file = open(f"{dataset_path}/java_python.java.bpe", "r")
         java_python_java_functions = java_python_java_file.readlines()
 
-        java_python_python_file = open(f"{DATASET_PATH}/java_python.python.bpe", "r")
+        java_python_python_file = open(f"{dataset_path}/java_python.python.bpe", "r")
         java_python_python_functions = java_python_python_file.readlines()
 
         parallel_functions["java_python"] = list(zip(java_python_java_functions, java_python_python_functions))
@@ -44,10 +41,10 @@ def load_parallel_functions(language_pair: str=None):
 
     return parallel_functions
 
-def load_validation_functions():
-    cpp_functions = extract_functions(f"{VALIDATION_SET_PATH}/transcoder_valid.cpp.tok")
-    java_functions = extract_functions(f"{VALIDATION_SET_PATH}/transcoder_valid.java.tok")
-    python_functions = extract_functions(f"{VALIDATION_SET_PATH}/transcoder_valid.python.tok")
+def load_validation_functions(validation_set_path: str):
+    cpp_functions = extract_functions(f"{validation_set_path}/transcoder_valid.cpp.tok")
+    java_functions = extract_functions(f"{validation_set_path}/transcoder_valid.java.tok")
+    python_functions = extract_functions(f"{validation_set_path}/transcoder_valid.python.tok")
 
     parallel_functions = {}
     parallel_functions["cpp_java"] = list(zip(cpp_functions, java_functions))

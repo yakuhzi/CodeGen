@@ -689,7 +689,7 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--use_knn_store", type=bool_flag, default=False, help="Use KNN Machine Translation"
+        "--knnmt_dir", type=str, default=None, help="Path to the KNNMT directory containing the datastore and faiss index"
     )
 
     parser.add_argument(
@@ -717,7 +717,7 @@ def main(params):
     if params.encoder_only:
         model = build_model(params, data["dico"])
     else:
-        encoder, decoder = build_model(params, data["dico"], use_knn_store=params.use_knn_store)
+        encoder, decoder = build_model(params, data["dico"], knnmt_dir=params.knnmt_dir)
     print_memory(logger, "before build classifier")
 
     if params.use_classifier:

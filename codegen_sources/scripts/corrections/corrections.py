@@ -54,7 +54,8 @@ OUT_DIR = f'dump/transcoder_st_corrections/{SRC_LANGUAGE}_{TGT_LANGUAGE}'
 FILLED_OUT_DIR = f"{OUT_DIR}/filled"
 FIXED_OUT_DIR = f"{OUT_DIR}/fixed"
 COMPILE_OUT_DIR = f"{OUT_DIR}/compile"
-USE_KNN_STORE = False
+KNNMT_DIR = None
+META_K_CHECKPOINT = None
 
 src_lang_processor = LangProcessor.processors[SRC_LANGUAGE](root_folder=TREE_SITTER_ROOT)
 tgt_lang_processor = LangProcessor.processors[TGT_LANGUAGE](root_folder=TREE_SITTER_ROOT)
@@ -68,7 +69,8 @@ with torch.no_grad():
     translator = Translator(
         translator_path.replace("Cpp", "CPP"), 
         'data/bpe/cpp-java-python/codes', 
-        use_knn_store=USE_KNN_STORE
+        knnmt_dir=KNNMT_DIR,
+        meta_k_checkpoint=META_K_CHECKPOINT
     )
 
     if not os.path.exists(FILLED_OUT_DIR):
@@ -132,7 +134,6 @@ with torch.no_grad():
                 lang1=SRC_LANGUAGE,
                 lang2=TGT_LANGUAGE,
                 beam_size=1,
-                use_knn_store=USE_KNN_STORE
             )[0].replace("@ @", "")
 
             f_name = tgt_lang_processor.get_function_name(f_fill)

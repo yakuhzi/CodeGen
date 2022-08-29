@@ -1,5 +1,3 @@
-import torch
-
 from .load_functions import extract_functions
 from ...model.translate import Translator
 from .knnmt import KNNMT
@@ -92,7 +90,7 @@ def add_sample(knnmt: KNNMT, language_pair: str, data_index: int):
     knnmt.save_datastore(language_pair)
     knnmt.train_datastore(language_pair)
 
-knnmt = KNNMT()
+knnmt = KNNMT("dump/knnmt")
 
 language_pair = "cpp_java"
 output_sample(knnmt, language_pair, 229)

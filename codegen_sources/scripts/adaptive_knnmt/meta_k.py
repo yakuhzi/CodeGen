@@ -14,36 +14,35 @@ from codegen_sources.scripts.knnmt.knnmt import KNNMT
 class MetaK(pl.LightningModule):
     def __init__(
         self,
-        batch_size: int,
-        epochs: int,
         learning_rate: float,
-        k: int,
+        max_k: int,
         hidden_size: int,
         temperature: int,
         vocab_size: int,
         language_pair: str,
+        knnmt_dir: str,
         beta_1: float = 0.9,
         beta_2: float = 0.98
     ):
         super(MetaK, self).__init__()
         self.save_hyperparameters()
 
-        self.knnmt = KNNMT()
+        self.knnmt = KNNMT(knnmt_dir)
 
         self.sequential = nn.Sequential(
-            nn.Linear(k * 2, hidden_size),
+            nn.Linear(max_k * 2, hidden_size),
             nn.Tanh(),
             nn.Dropout(p=0.0),
-            nn.Linear(hidden_size, 2 + int(math.log(k, 2))),
+            nn.Linear(hidden_size, 2 + int(math.log(max_k, 2))),
             nn.Softmax(dim=-1) # [0 neighbor prob, 1 neighbor prob, 2 neighbor prob, 4 , 8 , ... , ]
         )
 
-        nn.init.xavier_normal_(self.sequential[0].weight[:, :k], gain=0.01)
-        nn.init.xavier_normal_(self.sequential[0].weight[:, k:], gain=0.1)
+        nn.init.xavier_normal_(self.sequential[0].weight[:, :max_k], gain=0.01)
+        nn.init.xavier_normal_(self.sequential[0].weight[:, max_k:], gain=0.1)
 
     def forward(self, features: torch.Tensor) -> torch.Tensor:
-        knns, distances = self.knnmt.get_k_nearest_neighbors(features, self.hparams.language_pair, k=self.hparams.k)
-        distinct_neighbors = [[len(set(indices[:i])) for i in range(1, self.hparams.k + 1)] for indices in knns]
+        knns, distances = self.knnmt.get_k_nearest_neighbors(features, self.hparams.language_pair, k=self.hparams.max_k)
+        distinct_neighbors = [[len(set(indices[:i])) for i in range(1, self.hparams.max_k + 1)] for indices in knns]
 
         knns = torch.LongTensor(knns).to(self.device)
         distances = torch.FloatTensor(distances).to(self.device)

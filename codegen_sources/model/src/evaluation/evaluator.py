@@ -901,7 +901,7 @@ class EncDecEvaluator(Evaluator):
                                 dim=1
                             )
                             # KNNMT
-                            if params.use_knn_store:
+                            if params.knnmt_dir is not None:
                                 knnmt_generated, knnmt_lengths = decoder.generate(
                                     enc1.repeat_interleave(params.number_samples, dim=0),
                                     len1.repeat_interleave(params.number_samples, dim=0),
@@ -924,7 +924,7 @@ class EncDecEvaluator(Evaluator):
                             generated, lengths = decoder.generate(
                                 enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=False, meta_k=None
                             )
-                            if params.use_knn_store:
+                            if params.knnmt_dir is not None:
                                 knnmt_generated, knnmt_lengths = decoder.generate(
                                     enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=True, meta_k=self.meta_k
                                 )
@@ -944,7 +944,7 @@ class EncDecEvaluator(Evaluator):
                             use_knn_store=False,
                             meta_k=None,
                         )
-                        if params.use_knn_store:
+                        if params.knnmt_dir is not None:
                             knnmt_generated, knnmt_lengths, _ = decoder.generate_beam(
                                 enc1,
                                 len1,
@@ -990,7 +990,7 @@ class EncDecEvaluator(Evaluator):
                     references.extend(convert_to_text(x2, len2, self.dico, params))
                     sources.extend(convert_to_text(x1, len1, self.dico, params))
 
-                    if params.use_knn_store:
+                    if params.knnmt_dir is not None:
                         knnmt_hypothesis.extend(
                             convert_to_text(
                                 knnmt_generated,

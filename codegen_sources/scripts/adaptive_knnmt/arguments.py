@@ -42,9 +42,9 @@ def parse_arguments() -> Namespace:
 
     parser.add_argument(
         "-k",
-        "--k",
-        dest="k",
-        help="Number of neighbors to retrieve from the datastore",
+        "--max_k",
+        dest="max_k",
+        help="Maximum number of neighbors to retrieve from the datastore",
         type=int,
         default=32
     )
@@ -77,9 +77,8 @@ def parse_arguments() -> Namespace:
     )
 
     parser.add_argument(
-        "-c",
-        "--ckpt-path",
-        dest="ckpt_path",
+        "--checkpoint-path",
+        dest="checkpoint_path",
         help="Path to a checkpoint to resume the training",
         type=str,
         default=None
@@ -95,7 +94,6 @@ def parse_arguments() -> Namespace:
     )
 
     parser.add_argument(
-        "-ckpt",
         "--checkpoint-dir",
         dest="checkpoint_dir",
         help="Directory to save the model checkpoints",
@@ -112,11 +110,11 @@ def parse_arguments() -> Namespace:
     )
 
     parser.add_argument(
-        "--datastore-dir",
-        dest="datastore_dir",
-        help="Path to the directory containing the datastore",
+        "--knnmt-dir",
+        dest="knnmt_dir",
+        help="Path to the directory containing the KNN datastore and faiss index",
         type=str,
-        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/datastore"
+        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt"
     )
 
     parser.add_argument(
@@ -128,7 +126,6 @@ def parse_arguments() -> Namespace:
     )
 
     parser.add_argument(
-        "-ca",
         "--cache-dir",
         dest="cache_dir",
         help="Directory to cache the dataset",
