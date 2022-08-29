@@ -692,6 +692,10 @@ def get_parser():
         "--use_knn_store", type=bool_flag, default=False, help="Use KNN Machine Translation"
     )
 
+    parser.add_argument(
+        "--meta_k_checkpoint", type=str, default=None, help="Path to the MetaK checkpoint for adaptive KNN Machine Translation"
+    )
+
     return parser
 
 

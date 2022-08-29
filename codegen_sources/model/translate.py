@@ -35,6 +35,7 @@ from codegen_sources.model.src.data.dictionary import (
 from codegen_sources.model.src.utils import restore_roberta_segmentation_sentence, to_cuda
 from codegen_sources.model.src.model import build_model
 from codegen_sources.model.src.utils import AttrDict, TREE_SITTER_ROOT
+from codegen_sources.scripts.adaptive_knnmt.meta_k import MetaK
 
 SUPPORTED_LANGUAGES = ["cpp", "java", "python"]
 
@@ -81,14 +82,18 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--use_knn_store", type=str, default=None, help="Use KNN machine translation",
+        "--use_knn_store", type=bool, default=False, help="Use KNN machine translation",
+    )
+
+    parser.add_argument(
+        "--meta_k_checkpoint", type=str, default=None, help="Path to the MetaK checkpoint for adaptive KNN Machine Translation",
     )
 
     return parser
 
 
 class Translator:
-    def __init__(self, model_path, BPE_path, global_model: bool = False, use_knn_store: bool=False):
+    def __init__(self, model_path, BPE_path, global_model: bool = False, use_knn_store: bool=False, meta_k_checkpoint: Optional[str]=None):
         # reload model
         reloaded = torch.load(model_path, map_location="cpu")
         # change params of the reloaded model so that it will
@@ -110,6 +115,10 @@ class Translator:
         assert self.reloaded_params.mask_index == self.dico.index(MASK_WORD)
 
         self.use_knn_store = use_knn_store
+
+        if meta_k_checkpoint is not None:
+            self.meta_k = MetaK.load_from_checkpoint(meta_k_checkpoint)
+            self.meta_k.freeze()
 
         # build model / reload weights (in the build_model method)
         encoder, decoder = build_model(self.reloaded_params, self.dico, use_knn_store=use_knn_store)
@@ -321,6 +330,7 @@ class Translator:
                 max_len = int(
                     min(self.reloaded_params.max_len, 3 * len1.max().item() + 10)
                 )
+
             if beam_size == 1:
                 if return_weights:
                     x2, len2, decoder_weights, cross_weights = self.decoder.generate(
@@ -331,6 +341,8 @@ class Translator:
                         max_len=max_len,
                         sample_temperature=sample_temperature,
                         return_weights=return_weights,
+                        use_knn_store=self.use_knn_store,
+                        meta_k=self.meta_k,
                     )
                 else:
                     x2, len2 = self.decoder.generate(
@@ -341,6 +353,8 @@ class Translator:
                         max_len=max_len,
                         sample_temperature=sample_temperature,
                         return_weights=return_weights,
+                        use_knn_store=self.use_knn_store,
+                        meta_k=self.meta_k,
                     )
             else:
                 x2, len2, _ = self.decoder.generate_beam(
@@ -352,6 +366,8 @@ class Translator:
                     early_stopping=False,
                     length_penalty=length_penalty,
                     beam_size=beam_size,
+                    use_knn_store=self.use_knn_store,
+                    meta_k=self.meta_k,
                 )
 
             # Convert out ids to text
@@ -434,7 +450,7 @@ if __name__ == "__main__":
     ), f"The target language should be in {SUPPORTED_LANGUAGES}."
 
     # Initialize translator
-    translator = Translator(params.model_path, params.BPE_path, use_knn_store=params.use_knn_store)
+    translator = Translator(params.model_path, params.BPE_path, use_knn_store=params.use_knn_store, meta_k_checkpoint=params.meta_k_checkpoint)
 
     # read input code from stdin
     src_sent = []

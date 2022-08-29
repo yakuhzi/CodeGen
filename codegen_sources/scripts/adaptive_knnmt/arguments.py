@@ -28,7 +28,7 @@ def parse_arguments() -> Namespace:
         dest="batch_size",
         help="Bath size of the data loader",
         type=int,
-        default=50
+        default=100
     )
 
     parser.add_argument(
@@ -37,7 +37,7 @@ def parse_arguments() -> Namespace:
         dest="samples",
         help="Number of samples to take from the dataset",
         type=int,
-        default=50000
+        default=100000
     )
 
     parser.add_argument(

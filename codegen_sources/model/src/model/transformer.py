@@ -8,11 +8,13 @@
 import itertools
 import math
 from logging import getLogger
+from typing import Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from codegen_sources.scripts.adaptive_knnmt.meta_k import MetaK
 
 from codegen_sources.scripts.knnmt.knnmt import KNNMT
 
@@ -601,7 +603,7 @@ class TransformerModel(nn.Module):
         targets=None,
         predict_single_token=False,
         use_knn_store=False,
-        use_adaptive_knn=False
+        meta_k: Optional[MetaK]=None
     ):
         """
         Decode a sentence given initial start.
@@ -733,7 +735,7 @@ class TransformerModel(nn.Module):
                 next_words = targets[cur_len]
             elif sample_temperature is None:
                 if use_knn_store:
-                    next_words, replaced_indices = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id, use_adaptive_knn)
+                    next_words, replaced_indices = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id, meta_k=meta_k)
                 else:
                     next_words = torch.topk(scores, 1)[1].squeeze(1)
             else:
@@ -785,7 +787,8 @@ class TransformerModel(nn.Module):
         length_penalty,
         early_stopping,
         max_len=200,
-        use_knn_store=False
+        use_knn_store=False,
+        meta_k=None
     ):
         """
         Decode a sentence given initial start.
@@ -1012,7 +1015,22 @@ class TransformerModel(nn.Module):
         assert (decoded == self.eos_index).sum() == 2 * beam_size * bs
         return decoded, tgt_len, sorted([h[0] for h in hypotheses.hyp], reverse=True)
 
-    def predict_next_words(self, features, scores, src_lang_id: int, tgt_lang_id: int, beam_size: int=1, use_adaptive_knn: bool=False):
+    def predict_next_words(self, features, scores, src_lang_id: int, tgt_lang_id: int, beam_size: int=1, meta_k: Optional[MetaK]=None):
+        if meta_k is not None:
+            knn_lambda, knn_tgt_prob = meta_k(features)
+
+            normalized_tc_scores = F.softmax(scores.float(), dim=-1)
+            tgt_prob = normalized_tc_scores * (1 - knn_lambda.cuda()) + knn_tgt_prob.cuda()
+            tgt_prob = torch.clamp(tgt_prob, min=0, max=1)
+            
+            if beam_size == 1:
+                next_words = torch.argmax(tgt_prob, dim=1)
+                return next_words, []
+            else:
+                next_words = torch.argmax(tgt_prob, dim=1)
+                next_scores = torch.max(tgt_prob, dim=1)
+                return next_scores, next_words.cuda()
+
         k = 16 # * beam_size
         knn_temperature = 10
         tc_temperature = 2

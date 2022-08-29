@@ -16,6 +16,8 @@ import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score, average_precision_score
 
+from codegen_sources.scripts.adaptive_knnmt.meta_k import MetaK
+
 from .comp_acc_computation import load_evosuite_transcoder_tests, eval_function_output
 from .subtoken_score import run_subtoken_score
 from ..data.loader import DATASET_SPLITS
@@ -292,6 +294,10 @@ class Evaluator(object):
         if deobfuscation_proba not in deobf_probas_to_eval:
             deobf_probas_to_eval.append(deobfuscation_proba)
 
+        if params.meta_k_checkpoint:
+            self.meta_k = MetaK.load_from_checkpoint(params.meta_k_checkpoint)
+            self.meta_k.freeze()
+
         with torch.no_grad():
 
             for data_set in EVAL_DATASET_SPLITS:
@@ -333,9 +339,6 @@ class Evaluator(object):
                         params.eval_computation,
                         params.eval_subtoken_score,
                         spans,
-                        correct_functions=params.correct_functions,
-                        use_knn_store=params.use_knn_store,
-                        constrained=params.constrained,
                     )
                 if self.params.eval_denoising:
                     for lang in set(params.ae_steps):
@@ -349,9 +352,6 @@ class Evaluator(object):
                             eval_computation=False,
                             eval_subtoken_score=False,
                             span=None,
-                            correct_functions=params.correct_functions,
-                            use_knn_store=params.use_knn_store,
-                            constrained=params.constrained,
                         )
 
                 # machine translation task (evaluate perplexity and accuracy)
@@ -370,9 +370,6 @@ class Evaluator(object):
                         span=None,
                         deobfuscate=True,
                         deobfuscate_probas=deobf_probas_to_eval,
-                        correct_functions=params.correct_functions,
-                        use_knn_store=params.use_knn_store,
-                        constrained=params.constrained,
                     )
 
                 # prediction task (evaluate perplexity and accuracy)
@@ -752,9 +749,6 @@ class EncDecEvaluator(Evaluator):
         span,
         deobfuscate=False,
         deobfuscate_probas=None,
-        correct_functions=False,
-        constrained=False,
-        use_knn_store=False,
     ):
         """
         Evaluate perplexity and next word prediction accuracy.
@@ -898,6 +892,7 @@ class EncDecEvaluator(Evaluator):
                                 ),
                                 sample_temperature=params.eval_temperature,
                                 use_knn_store=False,
+                                meta_k=None
                             )
                             generated = generated.T.reshape(
                                 -1, params.number_samples, generated.shape[0]
@@ -917,6 +912,7 @@ class EncDecEvaluator(Evaluator):
                                     ),
                                     sample_temperature=params.eval_temperature,
                                     use_knn_store=True,
+                                    meta_k=self.meta_k,
                                 )
                                 knnmt_generated = knnmt_generated.T.reshape(
                                     -1, params.number_samples, knnmt_generated.shape[0]
@@ -926,11 +922,11 @@ class EncDecEvaluator(Evaluator):
                                 )
                         else:
                             generated, lengths = decoder.generate(
-                                enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=False
+                                enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=False, meta_k=None
                             )
                             if params.use_knn_store:
                                 knnmt_generated, knnmt_lengths = decoder.generate(
-                                    enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=True
+                                    enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=True, meta_k=self.meta_k
                                 )
                         # print(f'path 1: {generated.shape}')
 
@@ -945,7 +941,8 @@ class EncDecEvaluator(Evaluator):
                             length_penalty=params.length_penalty,
                             early_stopping=params.early_stopping,
                             max_len=len_v,
-                            use_knn_store=False
+                            use_knn_store=False,
+                            meta_k=None,
                         )
                         if params.use_knn_store:
                             knnmt_generated, knnmt_lengths, _ = decoder.generate_beam(
@@ -957,7 +954,8 @@ class EncDecEvaluator(Evaluator):
                                 length_penalty=params.length_penalty,
                                 early_stopping=params.early_stopping,
                                 max_len=len_v,
-                                use_knn_store=True
+                                use_knn_store=True,
+                                meta_k=self.meta_k,
                             )
                         # print(f'path 2: {generated.shape}')
                     if i == 0:
@@ -1038,8 +1036,8 @@ class EncDecEvaluator(Evaluator):
                     ref_path,
                     scores,
                     roberta_mode=params.roberta_mode,
-                    correct_functions=correct_functions,
-                    constrained=constrained,
+                    correct_functions=params.correct_functions,
+                    constrained=params.constrained,
                     knnmt_paths=knnmt_paths
                 )
 
@@ -1061,8 +1059,8 @@ class EncDecEvaluator(Evaluator):
                     scores,
                     roberta_mode=params.roberta_mode,
                     evosuite_functions=True,
-                    correct_functions=correct_functions,
-                    constrained=constrained,
+                    correct_functions=params.correct_functions,
+                    constrained=params.constrained,
                 )
             if eval_subtoken_score and data_set in datasets_for_bleu:
                 subtoken_level_scores = run_subtoken_score(ref_path, hyp_paths)

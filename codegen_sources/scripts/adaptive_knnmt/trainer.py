@@ -35,7 +35,7 @@ data_module = DataModule(
 )
 
 model = MetaK(
-    batch_size =arguments.batch_size, 
+    batch_size=arguments.batch_size, 
     epochs=arguments.epochs, 
     learning_rate=learning_rate, 
     k=arguments.k, 

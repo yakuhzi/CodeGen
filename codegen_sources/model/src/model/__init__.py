@@ -6,11 +6,9 @@
 #
 import math
 import os
-import sys
-from logging import getLogger
-
 import torch
 
+from logging import getLogger
 from .pretrain import load_embeddings
 
 # , TRANSFORMER_LAYER_PARAMS
