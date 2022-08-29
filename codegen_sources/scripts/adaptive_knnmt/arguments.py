@@ -150,4 +150,13 @@ def parse_arguments() -> Namespace:
         default="cpp_java"
     )
 
+    parser.add_argument(
+        "-ab",
+        "--adam-betas",
+        dest="adam_betas",
+        help="Beta1 and Beta2 of ADAM optimizer",
+        type=str,
+        default="0.9, 0.98"
+    )
+
     return parser.parse_args()

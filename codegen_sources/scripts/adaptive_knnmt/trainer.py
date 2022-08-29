@@ -40,7 +40,8 @@ model = MetaK(
     temperature=arguments.temperature,
     vocab_size=arguments.vocab_size,
     language_pair=arguments.language_pair,
-    knnmt_dir=arguments.knnmt_dir
+    adam_betas=arguments.adam_betas,
+    knnmt_dir=arguments.knnmt_dir,
 )
 
 log_dir = os.path.join(arguments.log_dir, arguments.language_pair)

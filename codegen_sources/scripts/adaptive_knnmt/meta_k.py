@@ -20,9 +20,8 @@ class MetaK(pl.LightningModule):
         temperature: int,
         vocab_size: int,
         language_pair: str,
+        adam_betas: str,
         knnmt_dir: str,
-        beta_1: float = 0.9,
-        beta_2: float = 0.98
     ):
         super(MetaK, self).__init__()
         self.save_hyperparameters()
@@ -127,8 +126,11 @@ class MetaK(pl.LightningModule):
         return F.binary_cross_entropy(y_hat, y_star)
 
     def configure_optimizers(self) -> torch.optim.Adam:
+        beta_1 = float(self.hparams.adam_betas.split(", ")[0])
+        beta_2 = float(self.hparams.adam_betas.split(", ")[1])
+
         return torch.optim.Adam(
             self.parameters(), 
             lr=self.hparams.learning_rate,
-            betas=(self.hparams.beta_1, self.hparams.beta_2),
+            betas=(beta_1, beta_2),
         )
