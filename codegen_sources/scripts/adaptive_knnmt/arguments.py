@@ -26,9 +26,9 @@ def parse_arguments() -> Namespace:
         "-b",
         "--batch_size",
         dest="batch_size",
-        help="Bath size of the data loader",
+        help="Batch size of the data loader",
         type=int,
-        default=100
+        default=32
     )
 
     parser.add_argument(
@@ -64,7 +64,7 @@ def parse_arguments() -> Namespace:
         dest="temperature",
         help="KNN distance temperature",
         type=int,
-        default=10
+        default=25
     )
 
     parser.add_argument(
@@ -154,7 +154,7 @@ def parse_arguments() -> Namespace:
         "-ab",
         "--adam-betas",
         dest="adam_betas",
-        help="Beta1 and Beta2 of ADAM optimizer",
+        help="Beta 1 and 2 of ADAM optimizer",
         type=str,
         default="0.9, 0.98"
     )

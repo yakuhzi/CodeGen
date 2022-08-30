@@ -37,18 +37,24 @@ model = MetaK(
     learning_rate=learning_rate,
     max_k=arguments.max_k, 
     hidden_size=arguments.hidden_size,
-    temperature=arguments.temperature,
+    knn_temperature=arguments.knn_temperature,
+    tc_temperature=arguments.tc_temperature,
     vocab_size=arguments.vocab_size,
     language_pair=arguments.language_pair,
     adam_betas=arguments.adam_betas,
     knnmt_dir=arguments.knnmt_dir,
 )
 
-log_dir = os.path.join(arguments.log_dir, arguments.language_pair)
-logger = TensorBoardLogger(save_dir=log_dir, name="logs")
+knnmt_mode = arguments.knnmt_dir.split("/")[-1]
+betas = arguments.adam_betas.replace(", ", "-")
+configuration = f"S{arguments.samples}_KT{arguments.knn_temperature}_TT{arguments.tc_temperature}_K{arguments.max_k}_H{arguments.hidden_size}_L{arguments.learning_rate}_B{betas}"
 
-checkpoint_dir = os.path.join(arguments.checkpoint_dir, arguments.language_pair)
-checkpoint_callback = ModelCheckpoint(dirpath=checkpoint_dir, every_n_epochs=10, save_top_k=-1)
+log_dir = os.path.join(arguments.log_dir, arguments.language_pair)
+logger = TensorBoardLogger(save_dir=log_dir, name="logs", version=configuration)
+
+checkpoint_dir = os.path.join(arguments.checkpoint_dir, knnmt_mode, arguments.language_pair, configuration)
+latest_checkpoint_callback = ModelCheckpoint(dirpath=checkpoint_dir, every_n_epochs=5, save_top_k=-1)
+best_checkpoint_callback = ModelCheckpoint(dirpath=checkpoint_dir, filename="best-epoch={epoch}", monitor="val_loss", mode="min")
 
 trainer = Trainer(
     gpus=gpus,
@@ -57,7 +63,7 @@ trainer = Trainer(
     max_epochs=arguments.epochs,
     progress_bar_refresh_rate=10,
     logger=logger,
-    callbacks=[checkpoint_callback]
+    callbacks=[latest_checkpoint_callback, best_checkpoint_callback]
 )
 
 trainer.fit(model, data_module, ckpt_path=arguments.checkpoint_path)

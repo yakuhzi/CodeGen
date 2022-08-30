@@ -7,8 +7,6 @@ import numpy as np
 import threading
 from pycuda import driver
 
-DATASET_PATH = "dump/offline_dataset"
-VALIDATION_SET_PATH = "dataset/transcoder/test"
 LANGUAGE_PAIRS = [
     "cpp_java",
     "cpp_python",
@@ -39,9 +37,9 @@ class GPUThread(threading.Thread):
         src_language = self.language_pair.split("_")[0]
         tgt_language = self.language_pair.split("_")[1]
 
-        translator_path = f"models/transcoder_st/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
+        translator_path = f"/pfs/work7/workspace/scratch/hd_tf268-code-gen/models/transcoder_st/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
         translator_path = translator_path.replace("Cpp", "CPP")
-        translator = Translator(translator_path, "data/bpe/cpp-java-python/codes", global_model=True)
+        translator = Translator(translator_path, "/pfs/work7/workspace/scratch/hd_tf268-code-gen/bpe/cpp-java-python/codes", global_model=True)
 
         # Obtain features and targets from decoder
         for src_sample, tgt_sample in self.chunk:
@@ -91,31 +89,37 @@ def train_datastore(knnmt: KNNMT):
         knnmt.train_datastore(language_pair)
 
 
-def created_mixed_datastore(knnmt: KNNMT):
+def created_mixed_datastore(knnmt_dir: str):
     for language_pair in LANGUAGE_PAIRS:
-        datastore_keys = np.load(f"dump/knnmt/datastore/keys_{language_pair}.npy")
-        datastore_keys_valid = np.load(f"dump/knnmt_valid/datastore/keys_{language_pair}.npy")
+        datastore_keys = np.load(f"{knnmt_dir}/datastore/keys_{language_pair}.npy")
+        datastore_keys_valid = np.load(f"{knnmt_dir}_valid/datastore/keys_{language_pair}.npy")
 
-        datastore_values= np.load(f"dump/knnmt/datastore/values_{language_pair}.npy")
-        datastore_values_valid= np.load(f"dump/knnmt_valid/datastore/values_{language_pair}.npy")
+        datastore_values = np.load(f"{knnmt_dir}/datastore/values_{language_pair}.npy")
+        datastore_values_valid = np.load(f"{knnmt_dir}_valid/datastore/values_{language_pair}.npy")
+
+        datastore_inputs = np.load(f"{knnmt_dir}/datastore/inputs_{language_pair}.npy")
+        datastore_inputs_valid = np.load(f"{knnmt_dir}_valid/datastore/inputs_{language_pair}.npy")
 
         datastore_keys = np.concatenate((datastore_keys, datastore_keys_valid), axis=0)
         datastore_values = np.concatenate((datastore_values, datastore_values_valid), axis=0)
+        datastore_inputs = np.concatenate((datastore_inputs, datastore_inputs_valid), axis=0)
 
         print("Keys", datastore_keys.shape)
         print("Values", datastore_values.shape)
+        print("Inputs", datastore_inputs.shape)
 
-        np.save(f"dump/knnmt_mixed/datastore/keys_{language_pair}.npy", datastore_keys)
-        np.save(f"dump/knnmt_mixed/datastore/values_{language_pair}.npy", datastore_values)
+        np.save(f"{knnmt_dir}_mixed/datastore/keys_{language_pair}.npy", datastore_keys)
+        np.save(f"{knnmt_dir}_mixed/datastore/values_{language_pair}.npy", datastore_values)
+        np.save(f"{knnmt_dir}_mixed/datastore/inputs_{language_pair}.npy", datastore_inputs)
 
 
-knnmt = KNNMT("dump/knnmt")
+knnmt = KNNMT("/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt")
 
-# parallel_functions = load_parallel_functions(DATASET_PATH)
+# parallel_functions = load_parallel_functions("/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/offline_dataset")
 # add_to_datastore(knnmt, parallel_functions)
 
-# validation_functions = load_validation_functions(VALIDATION_SET_PATH)
+# validation_functions = load_validation_functions("/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/transcoder/test")
 # add_to_datastore(knnmt, validation_functions, is_validation=True)
 
-# created_mixed_datastore(knnmt)
-train_datastore(knnmt)
+# created_mixed_datastore("/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt")
+# train_datastore(knnmt)

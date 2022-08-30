@@ -17,7 +17,8 @@ class MetaK(pl.LightningModule):
         learning_rate: float,
         max_k: int,
         hidden_size: int,
-        temperature: int,
+        knn_temperature: int,
+        tc_temperature: int,
         vocab_size: int,
         language_pair: str,
         adam_betas: str,
@@ -62,30 +63,11 @@ class MetaK(pl.LightningModule):
             k = pow(2, i) # [1 2 4 8 16 32]
 
             distances_i = distances[:, :k] # [B, k]
-            normalized_distances = torch.softmax(distances_i / self.hparams.temperature * -1, dim=-1) # [B, k]
+            normalized_distances = torch.softmax(distances_i / self.hparams.knn_temperature * -1, dim=-1) # [B, k]
 
             prob = k_soft_prob[:, i] # [B]
             scores = (normalized_distances.T * prob).T # [B, k]
             scatter(src=scores, out=knn_tgt_prob, index=knns[:, :k], dim=-1)
-
-            # for batch_index, p in enumerate(prob):
-            #     scores = normalized_distances[batch_index] * p # [k]
-
-            #     for index, score in enumerate(scores):
-            #         tgt_index = knns[batch_index][index]
-            #         knn_tgt_prob[batch_index][tgt_index] += score
-        
-        # distances = distances.unsqueeze(-2).expand(B, R_K, K) # [B, R_K, K]
-        # distances = distances / self.hparams.temperature # [B, R_K, K]
-
-        # knn_weight = torch.softmax(distances, dim=-1) # [B, R_K, K]
-        # weight_sum_knn_weight = torch.matmul(k_soft_prob.unsqueeze(-2), knn_weight).squeeze(-2).unsqueeze(-1) # [B, K, 1]
-
-        # knn_tgt_prob = torch.zeros(B, K, self.hparams.vocab_size).to(device) # [B, K, Vocab Size]
-        # tgt_index = tgt_index.unsqueeze_(-1) # [B, S, K, 1]
-
-        # scatter(src=weight_sum_knn_weight.float(), out=knn_tgt_prob, index=tgt_index, dim=-1)
-        # prob = knn_tgt_prob.sum(dim=-2) # [B, Vocab Size]
 
         return knn_lambda, knn_tgt_prob
 
@@ -108,11 +90,11 @@ class MetaK(pl.LightningModule):
         return loss
 
     def calculate_loss(self, batch: torch.Tensor):
-        features, tc_scores, targets = batch
+        features, tc_scores, targets, inputs, outputs = batch
 
-        knn_lambda, knn_tgt_prob = self(features) # [B, 1]
+        knn_lambda, knn_tgt_prob = self(features) # [B, 1], [B, R_K]
 
-        normalized_tc_scores = F.softmax(tc_scores.float(), dim=-1)
+        normalized_tc_scores = F.softmax(tc_scores.float() / self.hparams.tc_temperature, dim=-1)
         y_hat = normalized_tc_scores * (1 - knn_lambda) + knn_tgt_prob
         y_hat = torch.clamp(y_hat, min=0, max=1)
 
@@ -123,7 +105,7 @@ class MetaK(pl.LightningModule):
         for index, target in enumerate(targets):
             y_star[index][target] = 1
 
-        return F.binary_cross_entropy(y_hat, y_star)
+        return F.binary_cross_entropy(y_hat, y_star) * 1000000
 
     def configure_optimizers(self) -> torch.optim.Adam:
         beta_1 = float(self.hparams.adam_betas.split(", ")[0])
