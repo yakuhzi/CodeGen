@@ -23,6 +23,7 @@ class MetaK(pl.LightningModule):
         language_pair: str,
         adam_betas: str,
         knnmt_dir: str,
+        batch_size: int=32,
     ):
         super(MetaK, self).__init__()
         self.save_hyperparameters()
@@ -76,17 +77,17 @@ class MetaK(pl.LightningModule):
 
     def training_step(self, batch: torch.Tensor, batch_idx: int) -> Optional[OrderedDict]:
         loss = self.calculate_loss(batch)
-        self.log('train_loss', loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log('train_loss', loss, on_step=True, on_epoch=True, sync_dist=True, batch_size=self.hparams.batch_size)
         return loss
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
         loss = self.calculate_loss(batch)
-        self.log('val_loss', loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log('val_loss', loss, on_step=True, on_epoch=True, sync_dist=True, batch_size=self.hparams.batch_size)
         return loss
 
     def test_step(self, batch: torch.Tensor, batch_idx: int) -> None:
         loss = self.calculate_loss(batch)
-        self.log('test_loss', loss, on_step=True, on_epoch=True, sync_dist=True)
+        self.log('test_loss', loss, on_step=True, on_epoch=True, sync_dist=True, batch_size=self.hparams.batch_size)
         return loss
 
     def calculate_loss(self, batch: torch.Tensor):

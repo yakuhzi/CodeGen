@@ -297,6 +297,8 @@ class Evaluator(object):
         if params.meta_k_checkpoint:
             self.meta_k = MetaK.load_from_checkpoint(params.meta_k_checkpoint)
             self.meta_k.freeze()
+        else:
+            self.meta_k = None
 
         with torch.no_grad():
 
