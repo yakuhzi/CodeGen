@@ -36,6 +36,7 @@ from codegen_sources.model.src.utils import restore_roberta_segmentation_sentenc
 from codegen_sources.model.src.model import build_model
 from codegen_sources.model.src.utils import AttrDict, TREE_SITTER_ROOT
 from codegen_sources.scripts.adaptive_knnmt.meta_k import MetaK
+from codegen_sources.scripts.knnmt.knnmt import KNNMT
 
 SUPPORTED_LANGUAGES = ["cpp", "java", "python"]
 
@@ -117,7 +118,8 @@ class Translator:
         self.use_knn_store = knnmt_dir is not None
 
         if meta_k_checkpoint is not None:
-            self.meta_k = MetaK.load_from_checkpoint(meta_k_checkpoint)
+            self.meta_k = MetaK.load_from_checkpoint(meta_k_checkpoint).cuda()
+            self.meta_k.knnmt = KNNMT(knnmt_dir)
             self.meta_k.freeze()
 
         # build model / reload weights (in the build_model method)

@@ -1,13 +1,13 @@
-from collections import OrderedDict
-import math
-from typing import List, Optional
-from torch_scatter import scatter
 
 import pytorch_lightning as pl
 import torch
+import math
 import torch.nn.functional as F
-from torch import nn
 
+from typing import List, Optional
+from torch_scatter import scatter
+from collections import OrderedDict
+from torch import nn
 from codegen_sources.scripts.knnmt.knnmt import KNNMT
 
 
@@ -15,7 +15,9 @@ class MetaK(pl.LightningModule):
     def __init__(
         self,
         learning_rate: float,
+        batch_size: int,
         max_k: int,
+        tc_k: int,
         hidden_size: int,
         knn_temperature: int,
         tc_temperature: int,
@@ -23,7 +25,6 @@ class MetaK(pl.LightningModule):
         language_pair: str,
         adam_betas: str,
         knnmt_dir: str,
-        batch_size: int=32,
     ):
         super(MetaK, self).__init__()
         self.save_hyperparameters()
@@ -33,7 +34,6 @@ class MetaK(pl.LightningModule):
         self.sequential = nn.Sequential(
             nn.Linear(max_k * 2, hidden_size),
             nn.Tanh(),
-            nn.Dropout(p=0.0),
             nn.Linear(hidden_size, 2 + int(math.log(max_k, 2))),
             nn.Softmax(dim=-1) # [0 neighbor prob, 1 neighbor prob, 2 neighbor prob, 4 , 8 , ... , ]
         )
@@ -55,12 +55,9 @@ class MetaK(pl.LightningModule):
         knn_lambda = 1. - k_prob[:, :1]  # [B, 1]
         k_soft_prob = k_prob[:, 1:] # [B, R_K]
 
-        B, K = distances.size()
-        R_K = k_soft_prob.size(-1)
+        knn_tgt_prob = torch.zeros(distances.size(0), self.hparams.vocab_size).to(self.device) # [B, Vocab Size]
 
-        knn_tgt_prob = torch.zeros(B, self.hparams.vocab_size).to(self.device) # [B, Vocab Size]
-
-        for i in range(R_K):
+        for i in range(k_soft_prob.size(-1)):
             k = pow(2, i) # [1 2 4 8 16 32]
 
             distances_i = distances[:, :k] # [B, k]
@@ -91,22 +88,29 @@ class MetaK(pl.LightningModule):
         return loss
 
     def calculate_loss(self, batch: torch.Tensor):
-        features, tc_scores, targets, inputs, outputs = batch
+        features, tc_scores, targets, _, _ = batch
+        knn_tgt_prob = self.combined_prediction(features, tc_scores)
+        knn_tgt_prob = torch.clamp(knn_tgt_prob, min=1e-10, max=1)
+        return F.nll_loss(torch.log(knn_tgt_prob), targets)
 
+    # def calculate_loss(self, batch: torch.Tensor):
+    #     features, tc_scores, targets, inputs, outputs = batch
+    #     knn_lambda, knn_tgt_prob = self(features) # [B, 1], [B, R_K]
+
+    #     y_hat = knn_tgt_prob + 1e-10
+    #     tc_topk = torch.topk(tc_scores, self.hparams.tc_k)
+    #     normalized_tc_scores = F.softmax(tc_topk[0].float() / self.hparams.tc_temperature, dim=-1) * (1 - knn_lambda.cuda())
+    #     scatter(src=normalized_tc_scores, out=y_hat, index=tc_topk[1], dim=-1)
+
+    #     y_hat = torch.clamp(y_hat, min=0, max=1)
+    #     return F.nll_loss(torch.log(y_hat), targets)
+
+    def combined_prediction(self, features, tc_scores):
         knn_lambda, knn_tgt_prob = self(features) # [B, 1], [B, R_K]
-
-        normalized_tc_scores = F.softmax(tc_scores.float() / self.hparams.tc_temperature, dim=-1)
-        y_hat = normalized_tc_scores * (1 - knn_lambda) + knn_tgt_prob
-        y_hat = torch.clamp(y_hat, min=0, max=1)
-
-        B = features.size()[0]
-
-        y_star = torch.zeros(B, self.hparams.vocab_size).to(self.device)
-        
-        for index, target in enumerate(targets):
-            y_star[index][target] = 1
-
-        return F.binary_cross_entropy(y_hat, y_star) * 1000000
+        tc_topk = torch.topk(tc_scores, self.hparams.tc_k)
+        normalized_tc_scores = F.softmax(tc_topk[0].float() / self.hparams.tc_temperature, dim=-1) 
+        scatter(src=normalized_tc_scores * (1 - knn_lambda), out=knn_tgt_prob, index=tc_topk[1], dim=-1)
+        return knn_tgt_prob
 
     def configure_optimizers(self) -> torch.optim.Adam:
         beta_1 = float(self.hparams.adam_betas.split(", ")[0])

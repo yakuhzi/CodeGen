@@ -41,18 +41,39 @@ def load_parallel_functions(dataset_path: str, language_pair: str=None):
 
     return parallel_functions
 
-def load_validation_functions(validation_set_path: str):
-    cpp_functions = extract_functions(f"{validation_set_path}/transcoder_valid.cpp.tok")
-    java_functions = extract_functions(f"{validation_set_path}/transcoder_valid.java.tok")
-    python_functions = extract_functions(f"{validation_set_path}/transcoder_valid.python.tok")
+def load_validation_functions(validation_set_path: str, language_pair: str=None):
+    if language_pair is None or "cpp" in language_pair:
+        cpp_functions = extract_functions(f"{validation_set_path}/transcoder_valid.cpp.tok")
+
+    if language_pair is None or "java" in language_pair:
+        java_functions = extract_functions(f"{validation_set_path}/transcoder_valid.java.tok")
+
+    if language_pair is None or "python" in language_pair:
+        python_functions = extract_functions(f"{validation_set_path}/transcoder_valid.python.tok")
 
     parallel_functions = {}
-    parallel_functions["cpp_java"] = list(zip(cpp_functions, java_functions))
-    parallel_functions["cpp_python"] = list(zip(cpp_functions, python_functions))
-    parallel_functions["java_cpp"] = list(zip(java_functions, cpp_functions))
-    parallel_functions["java_python"] = list(zip(java_functions, python_functions))
-    parallel_functions["python_cpp"] = list(zip(python_functions, cpp_functions))
-    parallel_functions["python_java"] = list(zip(python_functions, java_functions))
+
+    if language_pair is None or language_pair == "cpp_java":
+        parallel_functions["cpp_java"] = list(zip(cpp_functions, java_functions))
+
+    if language_pair is None or language_pair == "cpp_python":    
+        parallel_functions["cpp_python"] = list(zip(cpp_functions, python_functions))
+
+    if language_pair is None or language_pair == "java_cpp":
+        parallel_functions["java_cpp"] = list(zip(java_functions, cpp_functions))
+
+    if language_pair is None or language_pair == "java_python":
+        parallel_functions["java_python"] = list(zip(java_functions, python_functions))
+
+    if language_pair is None or language_pair == "python_cpp":
+        parallel_functions["python_cpp"] = list(zip(python_functions, cpp_functions))
+        
+    if language_pair is None or language_pair == "python_java":
+        parallel_functions["python_java"] = list(zip(python_functions, java_functions))
+
+    if language_pair is not None:
+        return parallel_functions[language_pair]
+
     return parallel_functions
 
 

@@ -2,7 +2,7 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
 from codegen_sources.model.translate import Translator
-from codegen_sources.scripts.knnmt.load_functions import load_parallel_functions
+from codegen_sources.scripts.knnmt.load_functions import load_validation_functions
 
 from .dataset import Dataset
 
@@ -11,7 +11,6 @@ class DataModule(LightningDataModule):
     def __init__(
         self, 
         batch_size: int, 
-        samples: int, 
         dataset_dir: str, 
         model_dir: str,
         cache_dir: str,
@@ -20,7 +19,6 @@ class DataModule(LightningDataModule):
     ):
         super().__init__()
         self.batch_size = batch_size
-        self.samples = samples
         self.dataset_dir = dataset_dir
         self.model_dir = model_dir
         self.cache_dir = cache_dir
@@ -35,7 +33,7 @@ class DataModule(LightningDataModule):
         translator_path = translator_path.replace("Cpp", "CPP")
         translator = Translator(translator_path, self.bpe_path, global_model=True)
 
-        parallel_functions = load_parallel_functions(self.dataset_dir, self.language_pair)
+        parallel_functions = load_validation_functions(self.dataset_dir, self.language_pair)
 
         self.train_dataset = Dataset(
             parallel_functions=parallel_functions, 
@@ -43,7 +41,6 @@ class DataModule(LightningDataModule):
             translator=translator, 
             language_pair=self.language_pair, 
             phase="train", 
-            samples=self.samples
         )
 
         self.val_dataset = Dataset(
@@ -52,7 +49,6 @@ class DataModule(LightningDataModule):
             translator=translator, 
             language_pair=self.language_pair, 
             phase="val", 
-            samples=int(0.1 * self.samples)
         )
 
         self.test_dataset = Dataset(
@@ -61,7 +57,6 @@ class DataModule(LightningDataModule):
             translator=translator, 
             language_pair=self.language_pair, 
             phase="test", 
-            samples=int(0.1 * self.samples)
         )
 
     def train_dataloader(self) -> DataLoader:

@@ -5,12 +5,20 @@ def parse_arguments() -> Namespace:
     parser = ArgumentParser()
 
     parser.add_argument(
+        "--language-pair",
+        dest="language_pair",
+        help="Language pair to train on",
+        type=str,
+        default="cpp_java"
+    )
+
+    parser.add_argument(
         "-e",
         "--epochs",
         dest="epochs",
         help="Number of epochs for training",
         type=int,
-        default=100
+        default=150
     )
 
     parser.add_argument(
@@ -19,7 +27,16 @@ def parse_arguments() -> Namespace:
         dest="learning_rate",
         help="Initial learning rate",
         type=float,
-        default=3e-4
+        default=1e-05
+    )
+
+    parser.add_argument(
+        "-ab",
+        "--adam-betas",
+        dest="adam_betas",
+        help="Beta 1 and 2 of ADAM optimizer",
+        type=str,
+        default="0.9, 0.98"
     )
 
     parser.add_argument(
@@ -32,21 +49,20 @@ def parse_arguments() -> Namespace:
     )
 
     parser.add_argument(
-        "-s",
-        "--samples",
-        dest="samples",
-        help="Number of samples to take from the dataset",
-        type=int,
-        default=100000
-    )
-
-    parser.add_argument(
         "-k",
-        "--max_k",
+        "--max-k",
         dest="max_k",
         help="Maximum number of neighbors to retrieve from the datastore",
         type=int,
         default=32
+    )
+
+    parser.add_argument(
+        "--tc_k",
+        dest="tc_k",
+        help="Number of scores to consider from the TransCoder models",
+        type=int,
+        default=16
     )
 
     parser.add_argument(
@@ -55,20 +71,26 @@ def parse_arguments() -> Namespace:
         dest="hidden_size",
         help="Hidden size of FFN layers",
         type=int,
-        default=32
+        default=64
     )
 
     parser.add_argument(
-        "-t",
-        "--temperature",
-        dest="temperature",
+        "--knn-temperature",
+        dest="knn_temperature",
         help="KNN distance temperature",
         type=int,
-        default=25
+        default=10
     )
 
     parser.add_argument(
-        "-v",
+        "--tc-temperature",
+        dest="tc_temperature",
+        help="TransCoder distance temperature",
+        type=int,
+        default=5
+    )
+
+    parser.add_argument(
         "--vocab-size",
         dest="vocab_size",
         help="Size of vocabulary",
@@ -106,7 +128,7 @@ def parse_arguments() -> Namespace:
         dest="dataset_dir",
         help="Path to the directory containing the dataset",
         type=str,
-        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/offline_dataset"
+        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/transcoder/test"
     )
 
     parser.add_argument(
@@ -140,23 +162,6 @@ def parse_arguments() -> Namespace:
         help="Path to the bpe codes",
         type=str,
         default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/bpe/cpp-java-python/codes"
-    )
-
-    parser.add_argument(
-        "--language-pair",
-        dest="language_pair",
-        help="Language pair to train on",
-        type=str,
-        default="cpp_java"
-    )
-
-    parser.add_argument(
-        "-ab",
-        "--adam-betas",
-        dest="adam_betas",
-        help="Beta 1 and 2 of ADAM optimizer",
-        type=str,
-        default="0.9, 0.98"
     )
 
     return parser.parse_args()

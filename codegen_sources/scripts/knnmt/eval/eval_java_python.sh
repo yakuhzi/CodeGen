@@ -6,9 +6,9 @@
 #SBATCH --job-name=ev_jp_knn
 #SBATCH --output=transcoder_st_java_python_knn_mixed_%j.log
 
-MODEL_PATH='models/transcoder_st/Online_ST_Java_Python.pth'
-DUMP_PATH='dump/knnmt/eval/java_python'
-DATASET_PATH='dataset/transcoder/test'
+MODEL_PATH='/pfs/work7/workspace/scratch/hd_tf268-code-gen/models/Online_ST_Java_Python.pth'
+DUMP_PATH='/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/knnmt/eval/java_python'
+DATASET_PATH='/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/transcoder/test'
 
 python -m codegen_sources.model.train \
     --dump_path "$DUMP_PATH" \

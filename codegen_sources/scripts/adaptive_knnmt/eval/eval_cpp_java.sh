@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=1:30:00
+#SBATCH --time=0:30:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=ev_cj_aknn
-#SBATCH --output=transcoder_st_cpp_java_aknn_plain_%j.log
+#SBATCH --output=transcoder_st_cpp_java_aknn_mixed_%j.log
 
 MODEL_PATH='/pfs/work7/workspace/scratch/hd_tf268-code-gen/models/Online_ST_CPP_Java.pth'
-DUMP_PATH='/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/eval/cpp_java'
+DUMP_PATH='/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/eval/cpp_java/32_16'
 DATASET_PATH='/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/transcoder/test'
 
 python -m codegen_sources.model.train \
@@ -49,6 +49,6 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
-    --knnmt_dir '/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt' \
-    --meta_k_checkpoint '/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/checkpoints/cpp_java/epoch=49-step=18699.ckpt' \
-    --beam_size 1
+    --beam_size 1 \
+    --knnmt_dir '/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt_mixed' \
+    --meta_k_checkpoint '/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/checkpoints/cpp_java/BS32_KT10_TT5_MK8_TK8_HS64_LR1e-05_B0.9-0.98/547620/best-epoch=134.ckpt' \

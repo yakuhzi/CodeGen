@@ -347,7 +347,7 @@ class TransformerModel(nn.Module):
         assert len(self.id2lang) == len(self.lang2id) == self.n_langs
 
         if knnmt_dir is not None:
-            self.knnmt = KNNMT(params.knnmt_dir)
+            self.knnmt = KNNMT(knnmt_dir)
 
         # model parameters
         self.dim = (
@@ -1015,24 +1015,20 @@ class TransformerModel(nn.Module):
 
     def predict_next_words(self, features, scores, src_lang_id: int, tgt_lang_id: int, beam_size: int=1, meta_k: Optional[MetaK]=None):
         if meta_k is not None:
-            knn_lambda, knn_tgt_prob = meta_k(features)
-
-            normalized_tc_scores = F.softmax(scores.float(), dim=-1)
-            tgt_prob = normalized_tc_scores * (1 - knn_lambda.cuda()) + knn_tgt_prob.cuda()
-            tgt_prob = torch.clamp(tgt_prob, min=0, max=1)
+            knn_tgt_prob = meta_k.combined_prediction(features, scores).cuda()
             
             if beam_size == 1:
-                next_words = torch.argmax(tgt_prob, dim=1)
+                next_words = torch.argmax(knn_tgt_prob, dim=1)
                 return next_words, []
             else:
-                next_words = torch.argmax(tgt_prob, dim=1)
-                next_scores = torch.max(tgt_prob, dim=1)
+                next_words = torch.argmax(knn_tgt_prob, dim=1)
+                next_scores = torch.max(knn_tgt_prob, dim=1)
                 return next_scores, next_words.cuda()
 
-        k = 16 # * beam_size
+        k = 8 # * beam_size
         knn_temperature = 10
-        tc_temperature = 2
-        lmbda = 0.5
+        tc_temperature = 5
+        # lmbda = 0.5
 
         src_language = self.id2lang[src_lang_id].split("_")[0]
         tgt_language = self.id2lang[tgt_lang_id].split("_")[0]
@@ -1043,12 +1039,25 @@ class TransformerModel(nn.Module):
             k=k
         )
 
+        distinct_neighbors = [len(set(indices)) for indices in knn_targets]
+        knn_lambda = [0.9 if count == 1 else (0.7 if count == 2 else (0.5 if count == 3 else 0.2)) for count in distinct_neighbors]
+
+        # print("KNNS", knn_targets)
+        # print("LAMBDA", knn_lambda)
+        # print("KNN TGT PROB", knn_tgt_prob.argmax(1).item(), self.dico[knn_tgt_prob.argmax(1).item()])
+        # print("SCORES", scores.argmax(1).item(), self.dico[scores.argmax(1).item()])
+        # print("TGT PROB", tgt_prob.argmax(1).item(), self.dico[tgt_prob.argmax(1).item()])
+
         tc_topk = torch.topk(scores, k)
         tc_targets = tc_topk[1]
         tc_scores = tc_topk[0]
 
         normalized_knn_distances = F.softmax(torch.tensor(knn_distances / knn_temperature * -1), dim=-1)
         normalized_tc_scores = F.softmax(tc_scores.float() / tc_temperature, dim=-1) # TODO: Add temperature?
+
+        limit = 5000
+        clipped_distances = (limit - np.clip(knn_distances, 0, limit)) / limit
+        normalized_knn_distances = normalized_knn_distances * clipped_distances
 
         next_scores = []
         next_words = []
@@ -1076,15 +1085,15 @@ class TransformerModel(nn.Module):
 
             for target, distance in zip(beam_knn_targets, beam_knn_distances):
                 if target_scores.get(target) is None:
-                    target_scores[target] = distance.item() * lmbda
+                    target_scores[target] = distance.item() * knn_lambda[batch_index]
                 else:
-                    target_scores[target] += distance.item() * lmbda
+                    target_scores[target] += distance.item() * knn_lambda[batch_index]
 
             for target, distance in zip(beam_tc_targets, beam_tc_scores):
                 if target_scores.get(target.item()) is None:
-                    target_scores[target.item()] = distance.item() * (1 - lmbda)
+                    target_scores[target.item()] = distance.item() * (1 - knn_lambda[batch_index])
                 else:
-                    target_scores[target.item()] += distance.item() * (1 - lmbda)
+                    target_scores[target.item()] += distance.item() * (1 - knn_lambda[batch_index])
 
             best_targets = sorted(target_scores, key=target_scores.get, reverse=True)[:beam_size * 2]
 
@@ -1093,7 +1102,7 @@ class TransformerModel(nn.Module):
                 tc_greedy_target = tc_targets[batch_index][0].item()
 
                 if best_targets[0] != tc_greedy_target:
-                    print(f"KNNMT: Used '{self.dico[best_targets[0]]}' ({best_targets[0]}) instead of '{self.dico[tc_greedy_target]}' ({tc_greedy_target})")
+                    # print(f"KNNMT: Used '{self.dico[best_targets[0]]}' ({best_targets[0]}) instead of '{self.dico[tc_greedy_target]}' ({tc_greedy_target})")
                     replaced_indices.append(batch_index)
             else:
                 best_scores = [target_scores[target] for target in best_targets]

@@ -17,6 +17,7 @@ import torch
 from sklearn.metrics import roc_auc_score, average_precision_score
 
 from codegen_sources.scripts.adaptive_knnmt.meta_k import MetaK
+from codegen_sources.scripts.knnmt.knnmt import KNNMT
 
 from .comp_acc_computation import load_evosuite_transcoder_tests, eval_function_output
 from .subtoken_score import run_subtoken_score
@@ -295,7 +296,8 @@ class Evaluator(object):
             deobf_probas_to_eval.append(deobfuscation_proba)
 
         if params.meta_k_checkpoint:
-            self.meta_k = MetaK.load_from_checkpoint(params.meta_k_checkpoint)
+            self.meta_k = MetaK.load_from_checkpoint(params.meta_k_checkpoint).cuda()
+            self.meta_k.knnmt = KNNMT(params.knnmt_dir)
             self.meta_k.freeze()
         else:
             self.meta_k = None
