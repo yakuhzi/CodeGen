@@ -254,7 +254,8 @@ def submit_functions(
     functions_list,
     id,
     ref,
-    lang,
+    lang1,
+    lang2,
     outfolder,
     script_folder,
     retry_mismatching_types,
@@ -262,14 +263,14 @@ def submit_functions(
     correct_functions=False,
     replaced_indices=[]
 ):
-    lang_processor = LangProcessor.processors[lang](root_folder=TREE_SITTER_ROOT)
+    lang_processor = LangProcessor.processors[lang2](root_folder=TREE_SITTER_ROOT)
     results_list = []
     i = id.rstrip()
 
     for try_id, f_fill in enumerate(functions_list):
         f = f_fill.rstrip()
 
-        script_model_path = os.path.join(script_folder, f"{lang}/{i}.{EXT[lang]}")
+        script_model_path = os.path.join(script_folder, f"{lang2}/{i}.{EXT[lang2]}")
 
         if os.path.exists(script_model_path):
             script_model = open(script_model_path, "r", encoding="utf-8").read()
@@ -299,18 +300,18 @@ def submit_functions(
             )
 
             if correct_functions:
-                errors = get_errors(f_fill, tgt_language=lang)
-                script = fix_code(script_model, f_fill, lang, lang_processor, f_name=f_name, errors=errors)
+                errors = get_errors(f_fill, tgt_language=lang2)
+                script = fix_code(script_model, f_fill, lang2, lang_processor, f_name=f_name, errors=errors)
             else:
-                script = script_model.replace(TOFILL[lang], f)
+                script = script_model.replace(TOFILL[lang2], f)
 
-            if lang == "python":
+            if lang2 == "python":
                 script = f"import numpy as np \nimport math\nfrom math import *\nimport collections\nfrom collections import *\nimport heapq\nimport itertools\nimport random\nimport sys\n\n{script}"
 
-            script_path = f"{outfolder}/{i}.{EXT[lang]}"
+            script_path = f"{outfolder}/{i}.{EXT[lang2]}"
             open(script_path, "w", encoding="utf-8").write(script)
 
-            run_pg = globals()[f"run_{lang}_program"]
+            run_pg = globals()[f"run_{lang2}_program"]
             result, _ = run_pg(script_path, i)
 
             if result[0] == "success":
@@ -322,10 +323,10 @@ def submit_functions(
 
                 results_list.append(result)
                 return results_list, i
-            elif retry_mismatching_types and lang in {"cpp", "java"}:
+            elif retry_mismatching_types and lang2 in {"cpp", "java"}:
                 try:
                     script_transform_args = convert_filled_arguments(
-                        script_model, f_fill, lang, lang_processor, f_name=f_name
+                        script_model, f_fill, lang2, lang_processor, f_name=f_name
                     )
                 except KeyboardInterrupt:
                     raise
@@ -336,7 +337,7 @@ def submit_functions(
                     open(script_path, "w", encoding="utf-8").write(
                         script_transform_args
                     )
-                    run_pg = globals()[f"run_{lang}_program"]
+                    run_pg = globals()[f"run_{lang2}_program"]
                     result2, _ = run_pg(script_path, i)
                     if result2[0] == "success":
                         results_list.append(result2)
@@ -352,7 +353,21 @@ def submit_functions(
                             ),
                         )
 
-            if has_compile_errors(f_fill, tgt_language=lang):
+            unsuccessful_path = f"unsuccessful.{lang1}_{lang2}.txt"
+
+            if os.path.exists(unsuccessful_path):
+                unsuccessful_file = open(unsuccessful_path, "r")
+                unsuccessful_lines = unsuccessful_file.readlines()
+                unsuccessful_file.close()
+            else:
+                unsuccessful_lines = []
+
+            if f"{i} |" not in [line.replace("\n", " |") for line in unsuccessful_lines]:
+                file = open(unsuccessful_path, "a")
+                file.write(i + "\n")
+                file.close()
+
+            if has_compile_errors(f_fill, tgt_language=lang2):
                 result = list(result)
                 result[0] = "compile_error"
                 result = tuple(result)
@@ -367,6 +382,7 @@ def eval_function_output(
     ref_path,
     hyp_paths,
     id_path,
+    lang1,
     lang2,
     outfolder,
     script_folder,
@@ -397,22 +413,33 @@ def eval_function_output(
     else:
         knnmt_functions = [None for f in functions]
 
-    lang = lang2.split("_")[0]
+    lang1 = lang1.split("_")[0]
+    lang2 = lang2.split("_")[0]
     jobs = []
     executor = ProcessPoolExecutor()
 
-    if constrained:
+    results_stats = {
+        "success": 0,
+        "failure": 0,
+        "error": 0,
+        "timeout": 0,
+        "script_not_found": 0,
+        "identical_gold": 0,
+        "compile_error": 0
+    }
+
+    if not constrained:
         for i, beam_functions in enumerate(functions):
             has_replaced = False
 
-            for j, function in enumerate(beam_functions):
-                if not has_compile_errors(function, tgt_language=lang):
-                    if j > 0:
-                        print("Replaced function with first compiling function in beam", j)
-                    beam_functions = beam_functions[:j + 1]
-                    functions[i] = beam_functions
-                    has_replaced = True
-                    break
+            # for j, function in enumerate(beam_functions):
+            #     if not has_compile_errors(function, tgt_language=lang):
+            #         if j > 0:
+            #             print("Replaced function with first compiling function in beam", j)
+            #         beam_functions = beam_functions[:j + 1]
+            #         functions[i] = beam_functions
+            #         has_replaced = True
+            #         break
 
             if not has_replaced:
                 beam_functions = (beam_functions[0],)
@@ -424,7 +451,7 @@ def eval_function_output(
 
         # For each beam in tuple
         for index, function in enumerate(f):
-            if knnmt_f is not None and has_compile_errors(function, tgt_language=lang):
+            if knnmt_f is not None and has_compile_errors(function, tgt_language=lang2):
                 print("Replaced function with KNNMT function", i, f[index], knnmt_f[index])
                 replaced_indices.append(index)
                 f = list(f)
@@ -437,8 +464,8 @@ def eval_function_output(
                     submit_evosuite_functions,
                     f,
                     i,
-                    lang,
-                    evosuite_tests[lang],
+                    lang2,
+                    evosuite_tests[lang2],
                     roberta_mode
                 )
             )
@@ -449,7 +476,8 @@ def eval_function_output(
                     f,
                     i,
                     r,
-                    lang,
+                    lang1,
+                    lang2,
                     outfolder,
                     script_folder,
                     retry_mismatching_types,
@@ -459,15 +487,6 @@ def eval_function_output(
                 )
             )
 
-    results_stats = {
-        "success": 0,
-        "failure": 0,
-        "error": 0,
-        "timeout": 0,
-        "script_not_found": 0,
-        "identical_gold": 0,
-        "compile_error": 0
-    }
     results = ["" for _ in range(len(ids))]
     for job in jobs:
         results_list, i = job.result()

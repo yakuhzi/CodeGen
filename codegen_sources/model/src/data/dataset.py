@@ -549,6 +549,30 @@ class ParallelDataset(Dataset):
         # sanity checks
         self.check()
 
+    def select_specific_data(self, indices):
+        """
+        Only select a subset of the dataset.
+        """
+        # sub-select
+        self.pos_list = [pos[indices] for pos in self.pos_list]
+        self.lengths_list = [pos[:, 1] - pos[:, 0] for pos in self.pos_list]
+
+        # re-index
+        min_pos_list = [pos.min() for pos in self.pos_list]
+        max_pos_list = [pos.max() for pos in self.pos_list]
+        self.pos_list = [
+            pos - min_pos for pos, min_pos in zip(self.pos_list, min_pos_list)
+        ]
+        self.sent_list = [
+            sent[min_pos : max_pos + 1]
+            for sent, min_pos, max_pos in zip(
+                self.sent_list, min_pos_list, max_pos_list
+            )
+        ]
+
+        # sanity checks
+        self.check()
+
     def get_batches_iterator(self, batches, return_indices):
         """
         Return a sentences iterator, given the associated sentence batches.

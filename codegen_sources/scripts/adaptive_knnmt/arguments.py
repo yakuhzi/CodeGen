@@ -18,7 +18,7 @@ def parse_arguments() -> Namespace:
         dest="epochs",
         help="Number of epochs for training",
         type=int,
-        default=150
+        default=100
     )
 
     parser.add_argument(
@@ -62,7 +62,7 @@ def parse_arguments() -> Namespace:
         dest="tc_k",
         help="Number of scores to consider from the TransCoder models",
         type=int,
-        default=16
+        default=32
     )
 
     parser.add_argument(

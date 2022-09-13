@@ -41,6 +41,65 @@ def load_parallel_functions(dataset_path: str, language_pair: str=None):
 
     return parallel_functions
 
+def load_must_cost_functions(dataset_path: str, language_pair: str=None):
+    parallel_functions = {}
+
+    if language_pair is None or language_pair == "cpp_java" or language_pair == "java_cpp":
+        cpp_java_cpp_file = open(f"{dataset_path}/Java-C++/train-Java-C++.cpp", "r")
+        cpp_java_cpp_functions = cpp_java_cpp_file.readlines()
+
+        cpp_java_java_file = open(f"{dataset_path}/Java-C++/train-Java-C++.java", "r")
+        cpp_java_java_functions = cpp_java_java_file.readlines()
+
+        parallel_functions["cpp_java"] = list(zip(cpp_java_cpp_functions, cpp_java_java_functions))
+        parallel_functions["java_cpp"] = list(zip(cpp_java_java_functions, cpp_java_cpp_functions))
+
+    if language_pair is None or language_pair == "cpp_python" or language_pair == "python_cpp":
+        cpp_python_cpp_file = open(f"{dataset_path}/C++-Python/train-C++-Python.cpp", "r")
+        cpp_python_cpp_functions = cpp_python_cpp_file.readlines()
+
+        cpp_python_python_file = open(f"{dataset_path}/C++-Python/train-C++-Python.py", "r")
+        cpp_python_python_functions = cpp_python_python_file.readlines()
+
+        parallel_functions["cpp_python"] = list(zip(cpp_python_cpp_functions, cpp_python_python_functions))
+        parallel_functions["python_cpp"] = list(zip(cpp_python_python_functions, cpp_python_cpp_functions))
+
+    if language_pair is None or language_pair == "java_python" or language_pair == "python_java":
+        java_python_java_file = open(f"{dataset_path}/Java-Python/train-Java-Python.java", "r")
+        java_python_java_functions = java_python_java_file.readlines()
+
+        java_python_python_file = open(f"{dataset_path}/Java-Python/train-Java-Python.py", "r")
+        java_python_python_functions = java_python_python_file.readlines()
+
+        parallel_functions["java_python"] = list(zip(java_python_java_functions, java_python_python_functions))
+        parallel_functions["python_java"] = list(zip(java_python_python_functions, java_python_java_functions))
+
+    parallel_functions = deduped_parallel_functions(parallel_functions)
+
+    if language_pair is not None:
+        return parallel_functions[language_pair]
+
+    return parallel_functions
+
+def load_avatar_functions(dataset_path: str, language_pair: str=None):
+    parallel_functions = {}
+
+    java_python_java_file = open(f"{dataset_path}/train.java-python.bpe.java", "r")
+    java_python_java_functions = java_python_java_file.readlines()
+
+    java_python_python_file = open(f"{dataset_path}/train.java-python.bpe.python", "r")
+    java_python_python_functions = java_python_python_file.readlines()
+
+    parallel_functions["java_python"] = list(zip(java_python_java_functions, java_python_python_functions))
+    parallel_functions["python_java"] = list(zip(java_python_python_functions, java_python_java_functions))
+
+    parallel_functions = deduped_parallel_functions(parallel_functions)
+
+    if language_pair is not None:
+        return parallel_functions[language_pair]
+
+    return parallel_functions
+
 def load_validation_functions(validation_set_path: str, language_pair: str=None):
     if language_pair is None or "cpp" in language_pair:
         cpp_functions = extract_functions(f"{validation_set_path}/transcoder_valid.cpp.tok")
@@ -95,6 +154,10 @@ def deduped_parallel_functions(parallel_functions):
 
         for pair in function_pairs:
             source, target = pair
+
+            if source == "\n" or target == "\n":
+                continue
+
             hash = sha256(source.encode("utf8") + target.encode("utf8")).hexdigest()
 
             if hashes.get(hash) is None:

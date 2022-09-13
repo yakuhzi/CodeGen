@@ -681,17 +681,17 @@ def get_parser():
     )
 
     parser.add_argument(
+        "--eval_unsuccessful_only", type=bool_flag, default=False, help="Run evalutaion only on unsuccessful TransCoder-ST translations"
+    )
+    parser.add_argument(
         "--correct_functions", type=bool_flag, default=False, help="Correct model output with some hardcoded rules"
     )
-
     parser.add_argument(
         "--constrained", type=bool_flag, default=False, help="Only consider functions that compile for beam search"
     )
-
     parser.add_argument(
         "--knnmt_dir", type=str, default=None, help="Path to the KNNMT directory containing the datastore and faiss index"
     )
-
     parser.add_argument(
         "--meta_k_checkpoint", type=str, default=None, help="Path to the MetaK checkpoint for adaptive KNN Machine Translation"
     )

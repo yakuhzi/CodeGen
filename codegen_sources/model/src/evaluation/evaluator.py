@@ -1203,6 +1203,7 @@ class EncDecEvaluator(Evaluator):
             ref_path,
             hyp_paths,
             params.id_paths[(lang1, lang2, data_set)],
+            lang1,
             lang2,
             params.eval_scripts_folders[(lang1, lang2, data_set)],
             EVAL_SCRIPT_FOLDER[data_set],
