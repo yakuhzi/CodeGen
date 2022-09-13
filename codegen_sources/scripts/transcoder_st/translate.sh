@@ -1,12 +1,12 @@
-CPP_INPUT_FILE='codegen_sources/scripts/test/test.cpp'
-JAVA_INPUT_FILE='codegen_sources/scripts/test/Test.java'
-PYTHON_INPUT_FILE='codegen_sources/scripts/test/test.py'
+CPP_INPUT_FILE='codegen_sources/scripts/test_input/test.cpp'
+JAVA_INPUT_FILE='codegen_sources/scripts/test_input/Test.java'
+PYTHON_INPUT_FILE='codegen_sources/scripts/test_input/test.py'
 
 # ===============
 # CPP -> Java
 # ===============
-MODEL_PATH='models/Online_ST_CPP_Java.pth'
-python -m codegen_sources.model.translate --src_lang cpp --tgt_lang java --model_path "$MODEL_PATH" --beam_size 1 --use_knn_store true < "$CPP_INPUT_FILE"
+# MODEL_PATH='models/Online_ST_CPP_Java.pth'
+# python -m codegen_sources.model.translate --src_lang cpp --tgt_lang java --model_path "$MODEL_PATH" --beam_size 1 < "$CPP_INPUT_FILE"
 
 # ===============
 # CPP -> Python

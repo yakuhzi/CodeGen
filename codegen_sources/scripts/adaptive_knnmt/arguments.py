@@ -112,7 +112,7 @@ def parse_arguments() -> Namespace:
         dest="log_dir",
         help="Directory to save the training logs",
         type=str,
-        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/logs"
+        default="dump/adaptive_knnmt/logs"
     )
 
     parser.add_argument(
@@ -120,7 +120,7 @@ def parse_arguments() -> Namespace:
         dest="checkpoint_dir",
         help="Directory to save the model checkpoints",
         type=str,
-        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/checkpoints"
+        default="dump/adaptive_knnmt/checkpoints"
     )
 
     parser.add_argument(
@@ -128,7 +128,7 @@ def parse_arguments() -> Namespace:
         dest="dataset_dir",
         help="Path to the directory containing the dataset",
         type=str,
-        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/transcoder/test"
+        default="data/test_dataset"
     )
 
     parser.add_argument(
@@ -136,7 +136,7 @@ def parse_arguments() -> Namespace:
         dest="knnmt_dir",
         help="Path to the directory containing the KNN datastore and faiss index",
         type=str,
-        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt"
+        default="knnmt"
     )
 
     parser.add_argument(
@@ -144,7 +144,7 @@ def parse_arguments() -> Namespace:
         dest="model_dir",
         help="Path to the directory containing the TransCoder models",
         type=str,
-        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/models"
+        default="models"
     )
 
     parser.add_argument(
@@ -152,7 +152,7 @@ def parse_arguments() -> Namespace:
         dest="cache_dir",
         help="Directory to cache the dataset",
         type=str,
-        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/cache"
+        default="dump/adaptive_knnmt/cache"
     )
 
     parser.add_argument(
@@ -161,7 +161,7 @@ def parse_arguments() -> Namespace:
         dest="bpe_path",
         help="Path to the bpe codes",
         type=str,
-        default="/pfs/work7/workspace/scratch/hd_tf268-code-gen/bpe/cpp-java-python/codes"
+        default="data/bpe/cpp-java-python/codes"
     )
 
     return parser.parse_args()

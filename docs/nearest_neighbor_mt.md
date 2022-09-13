@@ -13,6 +13,15 @@ codegen_sources/scripts/knnmt/create_datastore.sh
 
 Note this can take a very long time. Consider splitting it up in multiple chunks or use a lot of GPUs for processing.
 
+## Train Adaptive kNN-MT Model
+To train the adaptive kNN-MT model for a language pair, run the following script:
+
+```sh
+codegen_sources/scripts/adaptive_knnmt/train/train_{src_language}_{tgt_language}.sh
+```
+
+The default arguments and hyperparameters can be seen in `codegen_sources/scripts/adaptive_knnmt/arguments.py`.
+
 ## Experiments
 
 ### Original Nearest Neighbor Translation
