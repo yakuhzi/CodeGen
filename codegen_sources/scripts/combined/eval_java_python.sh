@@ -6,9 +6,9 @@
 #SBATCH --job-name=java_python_combined
 #SBATCH --output=combined_java_python_%j.log
 
-MODEL_PATH='models/transcoder_st/Online_ST_Java_Python.pth'
+MODEL_PATH='models/Online_ST_Java_Python.pth'
 DUMP_PATH='dump/transcoder_st_combined/eval/java_python'
-DATASET_PATH='dataset/transcoder/test'
+DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
     --dump_path "$DUMP_PATH" \

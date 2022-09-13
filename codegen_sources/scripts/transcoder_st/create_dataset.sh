@@ -3,12 +3,12 @@
 #SBATCH --time=3:00:00
 #SBATCH --mem=150GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=cdg_0
-#SBATCH --output=transcoder_st_create_dataset_0_%j.log
+#SBATCH --job-name=create_dataset
+#SBATCH --output=transcoder_st_create_dataset_%j.log
 
-JAVA_FUNC_DATASET=$(ws_find code-gen)/dataset/single/java84
+JAVA_FUNC_DATASET='data/java_functions'
 MODELS_PATH='models/transcoder_st'
-OUTPUT_DIRECTORY='dump/transcoder_st/dataset_84'
+OUTPUT_DIRECTORY='data/parallel_corpus'
 
 # Create data (it will take a while)
 bash codegen_sources/test_generation/create_self_training_dataset.sh $JAVA_FUNC_DATASET $MODELS_PATH $OUTPUT_DIRECTORY

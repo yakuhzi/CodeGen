@@ -6,9 +6,9 @@
 #SBATCH --job-name=java_cpp_constraints
 #SBATCH --output=constraints_java_cpp_%j.log
 
-MODEL_PATH='models/transcoder_st/Online_ST_Java_CPP.pth'
+MODEL_PATH='models/Online_ST_Java_CPP.pth'
 DUMP_PATH='dump/transcoder_st_constraints/eval/java_cpp'
-DATASET_PATH='dataset/transcoder/test'
+DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
     --dump_path "$DUMP_PATH" \

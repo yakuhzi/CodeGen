@@ -37,9 +37,9 @@ class GPUThread(threading.Thread):
         src_language = self.language_pair.split("_")[0]
         tgt_language = self.language_pair.split("_")[1]
 
-        translator_path = f"/pfs/work7/workspace/scratch/hd_tf268-code-gen/models/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
+        translator_path = f"models/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
         translator_path = translator_path.replace("Cpp", "CPP")
-        translator = Translator(translator_path, "/pfs/work7/workspace/scratch/hd_tf268-code-gen/bpe/cpp-java-python/codes", global_model=True)
+        translator = Translator(translator_path, "data/bpe/cpp-java-python/codes", global_model=True)
 
         # Obtain features and targets from decoder
         for src_sample, tgt_sample in self.chunk:
@@ -89,15 +89,15 @@ def train_datastore(knnmt: KNNMT):
         knnmt.train_datastore(language_pair)
 
 
-def created_mixed_datastore(knnmt_dir: str, prefix: str="knnmt"):
+def created_mixed_datastore(knnmt_dir: str):
     for language_pair in LANGUAGE_PAIRS:
-        datastore_keys = np.load(f"{knnmt_dir}/{prefix}/datastore/keys_{language_pair}.npy")
+        datastore_keys = np.load(f"{knnmt_dir}/parallel_corpus/datastore/keys_{language_pair}.npy")
         datastore_keys_valid = np.load(f"{knnmt_dir}/knnmt_valid/datastore/keys_{language_pair}.npy")
 
-        datastore_values = np.load(f"{knnmt_dir}/{prefix}/datastore/values_{language_pair}.npy")
+        datastore_values = np.load(f"{knnmt_dir}/knnmt_parallel_corpus/datastore/values_{language_pair}.npy")
         datastore_values_valid = np.load(f"{knnmt_dir}/knnmt_valid/datastore/values_{language_pair}.npy")
 
-        datastore_inputs = np.load(f"{knnmt_dir}/{prefix}/datastore/inputs_{language_pair}.npy")
+        datastore_inputs = np.load(f"{knnmt_dir}/parallel_corpus/datastore/inputs_{language_pair}.npy")
         datastore_inputs_valid = np.load(f"{knnmt_dir}/knnmt_valid/datastore/inputs_{language_pair}.npy")
 
         datastore_keys = np.concatenate((datastore_keys, datastore_keys_valid), axis=0)
@@ -108,24 +108,21 @@ def created_mixed_datastore(knnmt_dir: str, prefix: str="knnmt"):
         print("Values", datastore_values.shape)
         print("Inputs", datastore_inputs.shape)
 
-        np.save(f"{knnmt_dir}/{prefix}_mixed/datastore/keys_{language_pair}.npy", datastore_keys)
-        np.save(f"{knnmt_dir}/{prefix}_mixed/datastore/values_{language_pair}.npy", datastore_values)
-        np.save(f"{knnmt_dir}/{prefix}_mixed/datastore/inputs_{language_pair}.npy", datastore_inputs)
+        np.save(f"{knnmt_dir}/knnmt_mixed/datastore/keys_{language_pair}.npy", datastore_keys)
+        np.save(f"{knnmt_dir}/knnmt_mixed/datastore/values_{language_pair}.npy", datastore_values)
+        np.save(f"{knnmt_dir}/knnmt_mixed/datastore/inputs_{language_pair}.npy", datastore_inputs)
 
 
-knnmt = KNNMT("/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt")
+knnmt_parallel_corpus = KNNMT("knnmt/parallel_corpus")
+parallel_functions = load_functions.load_parallel_functions("data/parallel_corpus")
+add_to_datastore(knnmt_parallel_corpus, parallel_functions)
+train_datastore(knnmt_parallel_corpus)
 
-# parallel_functions = load_functions.load_parallel_functions("/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/offline_dataset")
-# add_to_datastore(knnmt, parallel_functions)
+knnmt_valid = KNNMT("knnmt_validation_set")
+validation_functions = load_functions.load_validation_functions("data/test_dataset")
+add_to_datastore(knnmt_valid, validation_functions, is_validation=True)
+train_datastore(knnmt_valid)
 
-# validation_functions = load_functions.load_validation_functions("/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/transcoder/test")
-# add_to_datastore(knnmt, validation_functions, is_validation=True)
-
-# avatar_functions = load_functions.load_avatar_functions("/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/AVATAR/data/transcoder-bin")
-# add_to_datastore(knnmt, avatar_functions)
-
-# must_cost_functions = load_functions.load_must_cost_functions("/pfs/work7/workspace/scratch/hd_tf268-code-gen/dataset/MuST-CoST/CoST_data_release/processed_data/program_data")
-# add_to_datastore(knnmt, must_cost_functions)
-
-created_mixed_datastore("/pfs/work7/workspace/scratch/hd_tf268-code-gen", "knnmt_must_cost")
-train_datastore(knnmt)
+created_mixed_datastore("knnmt")
+knnmt_mixed = KNNMT("knnmt_mixed")
+train_datastore(knnmt_mixed)

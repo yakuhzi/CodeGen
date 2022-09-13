@@ -4,10 +4,10 @@
 #SBATCH --mem=10GB
 #SBATCH --partition multiple
 #SBATCH --gres=gpu:0
-#SBATCH --job-name=train_data_mlm_transcoder
-#SBATCH --output=train_data_mlm_transcoder_%j.log
+#SBATCH --job-name=preprocess_java_functions
+#SBATCH --output=preprocess_java_functions_%j.log
 
-DATASET_PATH=$(ws_find code-gen)/dataset/single
+DATASET_PATH=data/java_functions
 NGPU=1
 
 python -m codegen_sources.preprocessing.preprocess \

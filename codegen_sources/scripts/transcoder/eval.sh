@@ -6,9 +6,9 @@
 #SBATCH --job-name=eval_all_transcoder
 #SBATCH --output=transcoder_eval_all_1_%j.log
 
-MODEL_PATH='models/transcoder/TransCoder_model_1.pth'
+MODEL_PATH='models/TransCoder_model_1.pth'
 DUMP_PATH='dump/transcoder/eval/all/model_1'
-DATASET_PATH='dataset/transcoder/test'
+DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
     --exp_name transcoder_eval \

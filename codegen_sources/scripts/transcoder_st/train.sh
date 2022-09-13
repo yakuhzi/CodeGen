@@ -7,11 +7,11 @@
 #SBATCH --output=eval_transcoder_st_%j.log
 
 JAVA_FUNC_DATASET='dataset/transcoder_st'
-MODELS_PATH='models/transcoder_st'
+MODELS_PATH='models'
 OUTPUT_PATH='output/transcoder_st'
 DUMP_PATH='dump/transcoder_st'
 ONLINE_ST_FILES=${OUTPUT_PATH}/online_ST_files/
-MODEL_PATH='${MODELS_PATH}/TransCoder_model_1.pth'
+MODEL_PATH="${MODELS_PATH}/TransCoder_model_1.pth"
 
 python -m codegen_sources.model.train \
 ## General parameters

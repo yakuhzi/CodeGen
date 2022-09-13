@@ -96,15 +96,6 @@ with torch.no_grad():
 
             total += 1
 
-            whitelist = [
-                "MAXIMUM_AREA_RECTANGLE_PICKING_FOUR_SIDES_ARRAY",
-                # "SUM_AREA_RECTANGLES_POSSIBLE_ARRAY",
-                "PARTITION_INTO_TWO_SUBARRAYS_OF_LENGTHS_K_AND_N_K_SUCH_THAT_THE_DIFFERENCE_OF_SUMS_IS_MAXIMUM"
-            ]
-            
-            if function_id not in whitelist:
-                pass
-
             if not os.path.exists(filled_eval_path):
                 skipped += 1
                 continue
