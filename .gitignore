@@ -223,3 +223,4 @@ tree-sitter/
 codegen_sources/model/tools/fastBPE/
 javafx-sdk-11/
 googletest-release-1.8.0
+data/test_dataset/LICENSE
