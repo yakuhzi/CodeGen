@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=1:30:00
+#SBATCH --time=0:30:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=python_java_transcoder_st
-#SBATCH --output=transcoder_st_python_java_%j.log
+#SBATCH --job-name=transcoder_st_eval_python_java
+#SBATCH --output=transcoder_st_eval_python_java_%j.log
 
 MODEL_PATH='models/Online_ST_Python_Java.pth'
 DUMP_PATH='dump/transcoder_st/eval/python_java'

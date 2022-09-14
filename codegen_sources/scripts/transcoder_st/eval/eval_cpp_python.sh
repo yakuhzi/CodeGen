@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=1:30:00
+#SBATCH --time=0:30:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=cpp_python_transcoder_st
-#SBATCH --output=transcoder_st_cpp_python_%j.log
+#SBATCH --job-name=transcoder_st_eval_cpp_python
+#SBATCH --output=transcoder_st_eval_cpp_python_%j.log
 
 MODEL_PATH='models/Online_ST_CPP_Python.pth'
 DUMP_PATH='dump/transcoder_st/eval/cpp_python'
