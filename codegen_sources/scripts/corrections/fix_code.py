@@ -3,10 +3,13 @@ from compileall import compile_file
 from typing import Tuple
 
 from tree_sitter import Language, Node, Parser, TreeCursor
+from logging import getLogger
 
 from ...preprocessing.lang_processors.lang_processor import LangProcessor
 
 TOFILL = {"python": "#TOFILL", "java": "//TOFILL", "cpp": "//TOFILL"}
+
+logger = getLogger()
 
 
 def fix_code(
@@ -19,9 +22,9 @@ def fix_code(
 ) -> str:
     f_fill = lang_processor.detokenize_code(f_fill)
     f_fill = f_fill.replace(f_name, "f_filled")
-    print("=" * 100)
-    print("ORIGINAL\n", f_fill)
-    print("=" * 100)
+    logger.debug("=" * 100)
+    logger.debug(f"ORIGINAL\n{f_fill}")
+    logger.debug("=" * 100)
 
     code = bytes(f_fill, "utf8")
 
@@ -38,15 +41,15 @@ def fix_code(
     elif lang == "python":
         f_fill = fix_python_code(f_fill, cursor, code, errors)
 
-    print("=" * 100)
-    print("FIXED\n", f_fill)
-    print("=" * 100)
-    return script_model.replace(TOFILL[lang], "\n".join([f_fill, "\n"]))
+    logger.debug("=" * 100)
+    logger.debug(f"FIXED\n{f_fill}")
+    logger.debug("=" * 100)
+    return script_model.replace(TOFILL[lang], "\n".join([f_fill, "\n"])), f_fill.replace("f_filled", f_name)
 
 
 def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str, str]) -> str:
     compile_errors, _ = errors
-    print("COMPILE ERRORS:", compile_errors)
+    logger.debug(f"COMPILE ERRORS: {compile_errors}")
 
     defined_variables = []
 
@@ -119,7 +122,7 @@ def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str
 
 def fix_java_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str, str]) -> str:
     compile_errors, linting_errors = errors
-    print("COMPILE ERRORS:", compile_errors)
+    logger.debug(f"COMPILE ERRORS: {compile_errors}")
 
     # Fix type conversion errors
     for error in "\n".join([line.strip() for line in compile_errors.split("\n")]).split("^\n")[:-1]:
@@ -222,8 +225,8 @@ def fix_java_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[st
 
 def fix_python_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str, str]) -> str:
     compile_errors, linting_errors = errors
-    print("COMPILE ERRORS:", compile_errors)
-    print("LINTING ERRORS:", linting_errors)
+    logger.debug(f"COMPILE ERRORS: {compile_errors}")
+    logger.debug(f"LINTING ERRORS: {linting_errors}")
 
     # Fix usage of variable before assignment
     for error in linting_errors.split("\n"):

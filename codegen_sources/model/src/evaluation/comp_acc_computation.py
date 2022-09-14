@@ -14,6 +14,7 @@ import os
 
 from codegen_sources.model.src.utils import get_errors, has_compile_errors
 from ....scripts.corrections.fix_code import fix_code
+from logging import getLogger
 
 from ..utils import (
     REPO_ROOT,
@@ -54,6 +55,8 @@ EVOSUITE_TESTS_TRANSCODER_PATH = (
     .joinpath("evosuite_unit_tests")
     .joinpath("transcoder_test_set.json")
 )
+
+logger = getLogger()
 
 
 def eval_state(proc, proc_name):
@@ -267,6 +270,23 @@ def submit_functions(
     results_list = []
     i = id.rstrip()
 
+    replaced_rules = False
+
+    if correct_functions:
+        original_result, _, _, _, _, _ = submit_functions(
+            functions_list, 
+            id, 
+            ref, 
+            lang1, 
+            lang2, 
+            outfolder, 
+            script_folder, 
+            retry_mismatching_types, 
+            roberta_mode, 
+            False, 
+            replaced_indices
+        )
+
     for try_id, f_fill in enumerate(functions_list):
         f = f_fill.rstrip()
 
@@ -282,17 +302,6 @@ def submit_functions(
                 results_list.append(("error", "Could not replace function name"))
                 f_name = ""
 
-            if f_fill == ref:
-                results_list.append(("success", "identical to gold"))
-
-                if try_id > 0:
-                    print("Fixed function through beam search", id, try_id, f_fill, ref)
-
-                if try_id in replaced_indices:
-                    print("Fixed function through KNNMT", id, try_id, f_fill, ref)
-                    
-                return results_list, i
-
             f = (
                 lang_processor.detokenize_code(f)
                 if not roberta_mode
@@ -300,10 +309,29 @@ def submit_functions(
             )
 
             if correct_functions:
+                original_f_fill = f_fill
                 errors = get_errors(f_fill, tgt_language=lang2)
-                script = fix_code(script_model, f_fill, lang2, lang_processor, f_name=f_name, errors=errors)
+                script, f_fill = fix_code(script_model, f_fill, lang2, lang_processor, f_name=f_name, errors=errors)
+                replaced_rules = replaced_rules or original_f_fill != f_fill
             else:
                 script = script_model.replace(TOFILL[lang2], f)
+
+            if f_fill == ref:
+                results_list.append(("success", "identical to gold"))
+
+                if correct_functions and original_result[try_id][0] != "success":
+                    logger.debug(f"Fixed function through rule based fixes ({try_id}, {i}):\n{original_f_fill}\n{f_fill}\n{ref}")
+                    return results_list, i, True, 1, False, False
+
+                if try_id > 0:
+                    logger.debug(f"Fixed function through constrained beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
+                    return results_list, i, replaced_rules, 0, True, False
+
+                if try_id in replaced_indices:
+                    logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
+                    return results_list, i, replaced_rules, 0, False, True
+                    
+                return results_list, i, replaced_rules, 0, False, False
 
             if lang2 == "python":
                 script = f"import numpy as np \nimport math\nfrom math import *\nimport collections\nfrom collections import *\nimport heapq\nimport itertools\nimport random\nimport sys\n\n{script}"
@@ -315,14 +343,21 @@ def submit_functions(
             result, _ = run_pg(script_path, i)
 
             if result[0] == "success":
+                results_list.append(result)
+
+                if correct_functions and original_result[try_id][0] != "success":
+                    logger.debug(f"Fixed function through rule based fixes ({try_id}, {i}):\n{original_f_fill}\n{f_fill}\n{ref}")
+                    return results_list, i, True, 1, False, False
+
                 if try_id > 0:
-                    print("Fixed function through beam search", id, try_id, f_fill, ref)
+                    logger.debug(f"Fixed function through beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
+                    return results_list, i, replaced_rules, 0, True, False
 
                 if try_id in replaced_indices:
-                    print("Fixed function through KNNMT", id, try_id, f_fill, ref)
+                    logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
+                    return results_list, i, replaced_rules, 0, False, True
 
-                results_list.append(result)
-                return results_list, i
+                return results_list, i, replaced_rules, 0, False, False
             elif retry_mismatching_types and lang2 in {"cpp", "java"}:
                 try:
                     script_transform_args = convert_filled_arguments(
@@ -341,7 +376,7 @@ def submit_functions(
                     result2, _ = run_pg(script_path, i)
                     if result2[0] == "success":
                         results_list.append(result2)
-                        return results_list, i
+                        return results_list, i, replaced_rules, 0, False, False
                     else:
                         result = (
                             result2[0],
@@ -372,10 +407,15 @@ def submit_functions(
                 result[0] = "compile_error"
                 result = tuple(result)
 
+            if correct_functions and original_result[try_id][0] == "success":
+                logger.debug(f"Introduced error in function with rule based fixes ({try_id}, {i}):\n{f_fill}\n{ref}")
+                return results_list, i, True, -1, False, False
+
             results_list.append(result)
         else:
-            return [return_script_not_found()], i
-    return results_list, i
+            return [return_script_not_found()], i, replaced_rules, 0, False, False
+
+    return results_list, i, replaced_rules, 0, False, False
 
 
 def eval_function_output(
@@ -425,17 +465,25 @@ def eval_function_output(
         "timeout": 0,
         "script_not_found": 0,
         "identical_gold": 0,
-        "compile_error": 0
+        "compile_error": 0,
+        "replaced_rules": 0,
+        "fixed_rules": 0,
+        "broken_rules": 0,
+        "replaced_constrained": 0,
+        "fixed_constrained": 0,
+        "replaced_knnmt": 0,
+        "fixed_knnmt": 0
     }
 
-    if not constrained:
+    if constrained:
         for i, beam_functions in enumerate(functions):
             has_replaced = False
 
             # for j, function in enumerate(beam_functions):
-            #     if not has_compile_errors(function, tgt_language=lang):
+            #     if not has_compile_errors(function, tgt_language=lang2):
             #         if j > 0:
-            #             print("Replaced function with first compiling function in beam", j)
+            #             logger.debug(f"Replaced function with first compiling function in beam ({j})")
+            #             results_stats["replaced_constrained"] += 1
             #         beam_functions = beam_functions[:j + 1]
             #         functions[i] = beam_functions
             #         has_replaced = True
@@ -452,7 +500,8 @@ def eval_function_output(
         # For each beam in tuple
         for index, function in enumerate(f):
             if knnmt_f is not None and has_compile_errors(function, tgt_language=lang2):
-                print("Replaced function with KNNMT function", i, f[index], knnmt_f[index])
+                logger.debug(f"Replaced function with KNNMT function ({i}):\n{f[index]}\n{knnmt_f[index]}")
+                results_stats["replaced_knnmt"] += 1
                 replaced_indices.append(index)
                 f = list(f)
                 f[index] = knnmt_f[index]
@@ -489,7 +538,7 @@ def eval_function_output(
 
     results = ["" for _ in range(len(ids))]
     for job in jobs:
-        results_list, i = job.result()
+        results_list, i, replaced_rules, rules_result, fixed_constrained, fixed_knnmt = job.result()
         nb_success = sum([r[0] == "success" for r in results_list])
         nb_identical = sum(
             [r[0] == "success" and r[1] == "identical to gold" for r in results_list]
@@ -503,6 +552,16 @@ def eval_function_output(
             results_stats[results_list[0][0]] = (
                 results_stats.get(results_list[0][0], 0) + 1
             )
+
+        if replaced_rules:
+            logger.debug(f"Replaced function with rule-based fixes ({i})")
+
+        results_stats["replaced_rules"] += 1 if replaced_rules else 0
+        results_stats["fixed_rules"] += 1 if rules_result == 1 else 0
+        results_stats["broken_rules"] += 1 if rules_result == -1 else 0
+        results_stats["fixed_constrained"] += 1 if fixed_constrained else 0
+        results_stats["fixed_knnmt"] += 1 if fixed_knnmt else 0
+
         results[ids.index(i + "\n")] = []
         for result, stderr in results_list:
             if stderr is not None:
@@ -516,7 +575,6 @@ def eval_function_output(
         len(functions) - results_stats["script_not_found"]
     )
     results_stats = {k: results_stats[k] for k in sorted(results_stats.keys())}
-
     return results_stats, results
 
 
