@@ -41,6 +41,11 @@ cd apex
 pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 cd ..
 
+# JavaFX SDK 11
+# For other platforms visit https://gluonhq.com/products/javafx/ and select 'Include older versions' to download SDK
+wget https://download2.gluonhq.com/openjfx/11/openjfx-11_linux-x64_bin-sdk.zip
+unzip openjfx-11_linux-x64_bin-sdk.zip
+
 # TransCoder and TransCoder-ST models
 mkdir models
 cd models

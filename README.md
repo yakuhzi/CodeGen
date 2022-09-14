@@ -5,6 +5,7 @@ This repository contains the code and resources of the master's thesis `Analysis
 Almost all code and scripts that were added during the master thesis can be found under [codegen_sources/scripts](codegen_sources/scripts).
 
 ## Setup
+
 ### Repository
 Run the following command to clone the repository
 
@@ -38,4 +39,4 @@ The script will also download the pretrained TransCoder and TransCoder-ST models
 ## License
 The validation and test parallel datasets from GeeksForGeeks, and the evaluation scripts under [data/transcoder_evaluation_gfg](data/transcoder_evaluation_gfg) are released under the Creative Commons Attribution-ShareAlike 2.0 license. See https://creativecommons.org/licenses/by-sa/2.0/ for more information.
 
-The rest of the `code-gen` repository is under the MIT license. See [LICENSE](LICENSE) for more details.
+The rest of the repository is under the MIT license. See [LICENSE](LICENSE) for more details.
