@@ -3,8 +3,8 @@
 #SBATCH --time=2:00:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=cpp_java_corrections
-#SBATCH --output=corrections_cpp_java_%j.log
+#SBATCH --job-name=corrections_eval_cpp_java
+#SBATCH --output=corrections_eval_cpp_java_%j.log
 
 MODEL_PATH='models/transcoder_st/Online_ST_CPP_Java.pth'
 DUMP_PATH='dump/transcoder_st_corrections/eval/cpp_java'

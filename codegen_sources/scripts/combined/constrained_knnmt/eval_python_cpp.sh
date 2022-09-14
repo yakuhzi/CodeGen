@@ -3,11 +3,11 @@
 #SBATCH --time=2:00:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=constrained_eval_python_cpp
-#SBATCH --output=constrained_eval_python_cpp_%j.log
+#SBATCH --job-name=combined_eval_constrained_knnmt_python_cpp
+#SBATCH --output=combined_eval_constrained_knnmt_python_cpp_%j.log
 
 MODEL_PATH='models/Online_ST_Python_CPP.pth'
-DUMP_PATH='dump/transcoder_st_constraints/eval/python_cpp'
+DUMP_PATH='dump/transcoder_st_combined/eval/python_cpp'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
@@ -51,4 +51,7 @@ python -m codegen_sources.model.train \
     --st_sample_cache_ratio '0.5' \
     --beam_size 20 \
     --constrained true \
-    --correct_functions false
+    --correct_functions false \
+    --eval_unsuccessful_only false \
+    --knnmt_dir '/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt_mixed' \
+    --meta_k_checkpoint '/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/checkpoints/cpp_java/BS32_KT10_TT5_MK8_TK8_HS64_LR1e-05_B0.9-0.98/547620/best-epoch=134.ckpt' \

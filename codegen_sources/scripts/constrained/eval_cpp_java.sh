@@ -3,8 +3,8 @@
 #SBATCH --time=2:00:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=cpp_java_constraints
-#SBATCH --output=constraints_cpp_java_%j.log
+#SBATCH --job-name=constrained_eval_cpp_java
+#SBATCH --output=constrained_eval_cpp_java_%j.log
 
 MODEL_PATH='models/Online_ST_CPP_Java.pth'
 DUMP_PATH='dump/transcoder_st_constraints/eval/cpp_java'

@@ -3,8 +3,8 @@
 #SBATCH --time=2:00:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=java_python_constraints
-#SBATCH --output=constraints_java_python_%j.log
+#SBATCH --job-name=constrained_eval_java_python
+#SBATCH --output=constrained_eval_java_python_%j.log
 
 MODEL_PATH='models/Online_ST_Java_Python.pth'
 DUMP_PATH='dump/transcoder_st_constraints/eval/java_python'

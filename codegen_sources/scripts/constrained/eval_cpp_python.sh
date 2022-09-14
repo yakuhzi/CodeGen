@@ -3,8 +3,8 @@
 #SBATCH --time=2:00:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=cpp_python_constraints
-#SBATCH --output=constraints_cpp_python_%j.log
+#SBATCH --job-name=constrained_eval_cpp_python
+#SBATCH --output=constrained_eval_cpp_python_%j.log
 
 MODEL_PATH='models/Online_ST_CPP_Python.pth'
 DUMP_PATH='dump/transcoder_st_constraints/eval/cpp_python'
