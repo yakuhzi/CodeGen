@@ -92,13 +92,13 @@ def train_datastore(knnmt: KNNMT):
 def created_mixed_datastore(knnmt_dir: str):
     for language_pair in LANGUAGE_PAIRS:
         datastore_keys = np.load(f"{knnmt_dir}/parallel_corpus/datastore/keys_{language_pair}.npy")
-        datastore_keys_valid = np.load(f"{knnmt_dir}/knnmt_valid/datastore/keys_{language_pair}.npy")
+        datastore_keys_valid = np.load(f"{knnmt_dir}/validation_set/datastore/keys_{language_pair}.npy")
 
         datastore_values = np.load(f"{knnmt_dir}/knnmt_parallel_corpus/datastore/values_{language_pair}.npy")
-        datastore_values_valid = np.load(f"{knnmt_dir}/knnmt_valid/datastore/values_{language_pair}.npy")
+        datastore_values_valid = np.load(f"{knnmt_dir}/validation_set/datastore/values_{language_pair}.npy")
 
         datastore_inputs = np.load(f"{knnmt_dir}/parallel_corpus/datastore/inputs_{language_pair}.npy")
-        datastore_inputs_valid = np.load(f"{knnmt_dir}/knnmt_valid/datastore/inputs_{language_pair}.npy")
+        datastore_inputs_valid = np.load(f"{knnmt_dir}/validation_set/datastore/inputs_{language_pair}.npy")
 
         datastore_keys = np.concatenate((datastore_keys, datastore_keys_valid), axis=0)
         datastore_values = np.concatenate((datastore_values, datastore_values_valid), axis=0)
@@ -108,21 +108,21 @@ def created_mixed_datastore(knnmt_dir: str):
         print("Values", datastore_values.shape)
         print("Inputs", datastore_inputs.shape)
 
-        np.save(f"{knnmt_dir}/knnmt_mixed/datastore/keys_{language_pair}.npy", datastore_keys)
-        np.save(f"{knnmt_dir}/knnmt_mixed/datastore/values_{language_pair}.npy", datastore_values)
-        np.save(f"{knnmt_dir}/knnmt_mixed/datastore/inputs_{language_pair}.npy", datastore_inputs)
+        np.save(f"{knnmt_dir}/mixed/datastore/keys_{language_pair}.npy", datastore_keys)
+        np.save(f"{knnmt_dir}/mixed/datastore/values_{language_pair}.npy", datastore_values)
+        np.save(f"{knnmt_dir}/mixed/datastore/inputs_{language_pair}.npy", datastore_inputs)
 
 
-knnmt_parallel_corpus = KNNMT("knnmt/parallel_corpus")
+knnmt_parallel_corpus = KNNMT("out/knnmt/parallel_corpus")
 parallel_functions = load_functions.load_parallel_functions("data/parallel_corpus")
 add_to_datastore(knnmt_parallel_corpus, parallel_functions)
 train_datastore(knnmt_parallel_corpus)
 
-knnmt_valid = KNNMT("knnmt_validation_set")
+knnmt_valid = KNNMT("out/knnmt/validation_set")
 validation_functions = load_functions.load_validation_functions("data/test_dataset")
 add_to_datastore(knnmt_valid, validation_functions, is_validation=True)
 train_datastore(knnmt_valid)
 
-created_mixed_datastore("knnmt")
-knnmt_mixed = KNNMT("knnmt_mixed")
+created_mixed_datastore("out/knnmt")
+knnmt_mixed = KNNMT("out/knnmt/mixed")
 train_datastore(knnmt_mixed)

@@ -630,12 +630,6 @@ def get_parser():
     parser.add_argument(
         "--eval_only", type=bool_flag, default=False, help="Only run evaluations"
     )
-    parser.add_argument(
-        "--retry_mistmatching_types",
-        type=bool_flag,
-        default=False,
-        help="Retry with wrapper at eval time when the types do not match",
-    )
 
     parser.add_argument(
         "--n_sentences_eval",
@@ -681,7 +675,7 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--eval_unsuccessful_only", type=bool_flag, default=False, help="Run evalutaion only on unsuccessful TransCoder-ST translations"
+        "--unsuccessful_dir", type=str, default=None, help="Path to unsuccessful directory for evalutaion only on unsuccessful TransCoder-ST translations"
     )
     parser.add_argument(
         "--correct_functions", type=bool_flag, default=False, help="Correct model output with some hardcoded rules"

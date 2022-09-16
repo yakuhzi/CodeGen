@@ -93,18 +93,6 @@ class MetaK(pl.LightningModule):
         knn_tgt_prob = torch.clamp(knn_tgt_prob, min=1e-10, max=1)
         return F.nll_loss(torch.log(knn_tgt_prob), targets)
 
-    # def calculate_loss(self, batch: torch.Tensor):
-    #     features, tc_scores, targets, inputs, outputs = batch
-    #     knn_lambda, knn_tgt_prob = self(features) # [B, 1], [B, R_K]
-
-    #     y_hat = knn_tgt_prob + 1e-10
-    #     tc_topk = torch.topk(tc_scores, self.hparams.tc_k)
-    #     normalized_tc_scores = F.softmax(tc_topk[0].float() / self.hparams.tc_temperature, dim=-1) * (1 - knn_lambda.cuda())
-    #     scatter(src=normalized_tc_scores, out=y_hat, index=tc_topk[1], dim=-1)
-
-    #     y_hat = torch.clamp(y_hat, min=0, max=1)
-    #     return F.nll_loss(torch.log(y_hat), targets)
-
     def combined_prediction(self, features, tc_scores):
         knn_lambda, knn_tgt_prob = self(features) # [B, 1], [B, R_K]
         tc_topk = torch.topk(tc_scores, self.hparams.tc_k)

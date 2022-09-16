@@ -15,6 +15,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score, average_precision_score
+from tqdm import tqdm
 
 from codegen_sources.scripts.adaptive_knnmt.meta_k import MetaK
 from codegen_sources.scripts.knnmt.knnmt import KNNMT
@@ -801,11 +802,11 @@ class EncDecEvaluator(Evaluator):
             knnmt_hypothesis = []
             sources = []
             references = []
-            for i, batch in enumerate(
+            for i, batch in tqdm(enumerate(
                 self.get_iterator(
                     data_set, lang1, lang2 if lang2 != lang1 else None, span=span
                 )
-            ):
+            )):
                 spans = None
                 assert len(batch) >= 2
                 if len(batch) == 2:
@@ -1207,7 +1208,6 @@ class EncDecEvaluator(Evaluator):
             lang2,
             params.eval_scripts_folders[(lang1, lang2, data_set)],
             EVAL_SCRIPT_FOLDER[data_set],
-            params.retry_mistmatching_types,
             roberta_mode,
             evosuite_functions=evosuite_functions,
             evosuite_tests=self.evosuite_tests_dico,

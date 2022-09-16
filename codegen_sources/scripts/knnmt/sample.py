@@ -2,13 +2,13 @@ from .load_functions import extract_functions
 from ...model.translate import Translator
 from .knnmt import KNNMT
 
-DATASET_PATH = "dataset/transcoder/test"
+DATASET_PATH = "data/test_dataset"
 
 
 def output_sample(knnmt: KNNMT, language_pair: str, data_index: int):
     src_language, tgt_language = language_pair.split("_")[0], language_pair.split("_")[1]
 
-    translator_path = f"models/transcoder_st/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
+    translator_path = f"models/Online_ST_{src_language.title()}_{tgt_language.title()}.pth"
     translator = Translator(
         translator_path.replace("Cpp", "CPP"), "data/bpe/cpp-java-python/codes", global_model=True
     )
@@ -90,7 +90,7 @@ def add_sample(knnmt: KNNMT, language_pair: str, data_index: int):
     knnmt.save_datastore(language_pair)
     knnmt.train_datastore(language_pair)
 
-knnmt = KNNMT("/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt")
+knnmt = KNNMT("knnmt/mixed")
 
 language_pair = "cpp_java"
 output_sample(knnmt, language_pair, 229)

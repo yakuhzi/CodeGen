@@ -9,7 +9,7 @@ def parse_arguments() -> Namespace:
         dest="language_pair",
         help="Language pair to train on",
         type=str,
-        default="cpp_java"
+        default="python_cpp"
     )
 
     parser.add_argument(
@@ -18,7 +18,7 @@ def parse_arguments() -> Namespace:
         dest="epochs",
         help="Number of epochs for training",
         type=int,
-        default=100
+        default=50
     )
 
     parser.add_argument(
@@ -71,7 +71,7 @@ def parse_arguments() -> Namespace:
         dest="hidden_size",
         help="Hidden size of FFN layers",
         type=int,
-        default=64
+        default=32
     )
 
     parser.add_argument(
@@ -87,7 +87,7 @@ def parse_arguments() -> Namespace:
         dest="tc_temperature",
         help="TransCoder distance temperature",
         type=int,
-        default=5
+        default=1
     )
 
     parser.add_argument(
@@ -120,7 +120,7 @@ def parse_arguments() -> Namespace:
         dest="checkpoint_dir",
         help="Directory to save the model checkpoints",
         type=str,
-        default="dump/adaptive_knnmt/checkpoints"
+        default="out/adaptive_knnmt/checkpoints"
     )
 
     parser.add_argument(
@@ -136,7 +136,7 @@ def parse_arguments() -> Namespace:
         dest="knnmt_dir",
         help="Path to the directory containing the KNN datastore and faiss index",
         type=str,
-        default="knnmt"
+        default="out/knnmt/parallel_corpus"
     )
 
     parser.add_argument(
@@ -152,7 +152,7 @@ def parse_arguments() -> Namespace:
         dest="cache_dir",
         help="Directory to cache the dataset",
         type=str,
-        default="dump/adaptive_knnmt/cache"
+        default="out/adaptive_knnmt/cache"
     )
 
     parser.add_argument(

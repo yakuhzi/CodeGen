@@ -216,6 +216,7 @@ cython_debug/
 *.pkl
 *.pth.*
 
+out/
 dump/
 apex/
 dataset/

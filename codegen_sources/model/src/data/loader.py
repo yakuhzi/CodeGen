@@ -315,11 +315,11 @@ def load_para_data(params, data):
                 has_sentence_ids=(splt, (src, tgt)) in params.has_sentence_ids,
             )
 
-            lang1 = params.langs[0].split("_")[0]
-            lang2 = params.langs[1].split("_")[0]
-            unsuccessful_path = f"unsuccessful.{lang1}_{lang2}.txt"
+            if params.unsuccessful_dir is not None and splt == "test":
+                lang1 = params.langs[0].split("_")[0]
+                lang2 = params.langs[1].split("_")[0]
 
-            if params.eval_unsuccessful_only and splt == "test" and os.path.exists(unsuccessful_path):
+                unsuccessful_path = f"{params.unsuccessful_dir}/unsuccessful.{lang1}_{lang2}"
                 unsuccessful_file = open(unsuccessful_path, "r")
                 unsuccessful_lines = unsuccessful_file.readlines()
                 unsuccessful_file.close()

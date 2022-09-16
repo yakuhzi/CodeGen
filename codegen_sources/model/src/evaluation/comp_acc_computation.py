@@ -15,6 +15,7 @@ import os
 from codegen_sources.model.src.utils import get_errors, has_compile_errors
 from ....scripts.corrections.fix_code import fix_code
 from logging import getLogger
+from tqdm import tqdm
 
 from ..utils import (
     REPO_ROOT,
@@ -133,97 +134,6 @@ def make_arg_string(argtype, argval):
     return f'{argtype} {argval} {"[ ]" * dim}'
 
 
-def convert_filled_arguments(script_model, f, lang, lang_processor, f_name=None):
-    assert lang in {"java", "cpp"}
-    header = []
-    arguments_gold = lang_processor.extract_arguments(script_model)
-    return_type_gold = get_return_type(script_model)
-
-    arguments_filled = lang_processor.extract_arguments(f)
-    return_type_filled = get_return_type(f)
-
-    if arguments_gold[0] == arguments_filled[0]:
-        return None
-    if f_name is None:
-        f_name = lang_processor.get_function_name(f)
-
-    argument_types_gold = [t.strip() for t in arguments_gold[0]]
-    arguments_strings = [
-        make_arg_string(arg_type, f"param{i}")
-        for i, arg_type in enumerate(argument_types_gold)
-    ]
-    new_function_lines = [
-        f'static {return_type_gold} f_filled({", ".join(arguments_strings)})',
-        "{",
-    ]
-
-    new_params_strings = []
-    for param_index, (param_type_gold, param_type_filled) in enumerate(
-        zip(argument_types_gold, arguments_filled[0])
-    ):
-        param_type_filled = param_type_filled.strip()
-        param_type_gold = param_type_gold.strip()
-        if param_type_filled == param_type_gold:
-            new_params_strings.append(f"param{param_index}")
-        elif lang == "cpp":
-            if "vector" in param_type_filled:
-                if "int" not in argument_types_gold:
-                    return None
-                ints_indices = [
-                    i
-                    for i, t in enumerate(argument_types_gold)
-                    if t == "int" and i > param_index
-                ]
-                if any([i > param_index for i in ints_indices]):
-                    array_length_arg = min([i for i in ints_indices if i > param_index])
-                else:
-                    array_length_arg = min(ints_indices)
-                new_function_lines.append(
-                    f'{param_type_filled.replace("&", "")} vect_param{param_index}(param{param_index}, param{param_index} + param{array_length_arg});'
-                )
-                new_params_strings.append(f"vect_param{param_index}")
-            elif param_type_filled == "string" and "char" in param_type_gold:
-                new_function_lines.append(
-                    f'{param_type_filled.replace("&", "")} string_param{param_index}(param{param_index});'
-                )
-                new_params_strings.append(f"string_param{param_index}")
-            elif param_type_gold == "string" and "char" in param_type_filled:
-                new_function_lines.append(
-                    f"char char_arr_param{param_index}[param{param_index}.length() + 1];"
-                )
-                new_function_lines.append(
-                    f"strcopy(char_arr_param{param_index}, param{param_index}.c_str());"
-                )
-                new_params_strings.append(f"char_arr_param{param_index}")
-            else:
-                new_params_strings.append(f"({param_type_filled}) param{param_index}")
-        elif lang == "java":
-            if (
-                param_type_filled == "String" and "char" in param_type_gold
-            ) or param_type_filled == transform_to_java_object_type(param_type_gold):
-                new_params_strings.append(
-                    f"{param_type_filled}.valueOf(param{param_index})"
-                )
-                header.append("#include <cstring>")
-            elif param_type_gold == "String":
-                new_params_strings.append(f"param{param_index}.toCharArray()")
-            else:
-                new_params_strings.append(f"({param_type_filled}) param{param_index}")
-        else:
-            return None
-
-    inner_function_name = "f_filled_inner"
-    outer_f_return_string = f'{inner_function_name}({",".join(new_params_strings)})'
-    if return_type_filled != return_type_gold:
-        outer_f_return_string = f"({return_type_gold}) {outer_f_return_string}"
-    new_function_lines += [f"return {outer_f_return_string};", "}"]
-
-    f = lang_processor.detokenize_code(f.replace(f_name, inner_function_name))
-    return "\n".join(list(set(header))) + script_model.replace(
-        TOFILL[lang], "\n".join([f, "\n"] + new_function_lines)
-    )
-
-
 def submit_evosuite_functions(
     functions_list, id, lang, test_dictionary, roberta_mode=False
 ):
@@ -261,7 +171,6 @@ def submit_functions(
     lang2,
     outfolder,
     script_folder,
-    retry_mismatching_types,
     roberta_mode=False,
     correct_functions=False,
     replaced_indices=[]
@@ -270,152 +179,100 @@ def submit_functions(
     results_list = []
     i = id.rstrip()
 
-    replaced_rules = False
-
-    if correct_functions:
-        original_result, _, _, _, _, _ = submit_functions(
-            functions_list, 
-            id, 
-            ref, 
-            lang1, 
-            lang2, 
-            outfolder, 
-            script_folder, 
-            retry_mismatching_types, 
-            roberta_mode, 
-            False, 
-            replaced_indices
-        )
-
     for try_id, f_fill in enumerate(functions_list):
-        f = f_fill.rstrip()
+        f_fill = f_fill.rstrip()
+        ref = ref.rstrip()
 
         script_model_path = os.path.join(script_folder, f"{lang2}/{i}.{EXT[lang2]}")
 
-        if os.path.exists(script_model_path):
-            script_model = open(script_model_path, "r", encoding="utf-8").read()
+        if not os.path.exists(script_model_path):
+            return [return_script_not_found()], i, 0, False, False
 
-            try:
-                f_name = lang_processor.get_function_name(f)
-                f = f.replace(f_name, "f_filled")
-            except:
-                results_list.append(("error", "Could not replace function name"))
-                f_name = ""
+        script_model = open(script_model_path, "r", encoding="utf-8").read()
 
-            f = (
-                lang_processor.detokenize_code(f)
-                if not roberta_mode
-                else f.replace("#NEWLINE", "\n")
-            )
+        try:
+            f_name = lang_processor.get_function_name(f_fill)
+            f_fill = f_fill.replace(f_name, "f_filled")
+        except:
+            results_list.append(("error", "Could not replace function name"))
+            f_name = ""
 
-            if correct_functions:
-                original_f_fill = f_fill
-                errors = get_errors(f_fill, tgt_language=lang2)
-                script, f_fill = fix_code(script_model, f_fill, lang2, lang_processor, f_name=f_name, errors=errors)
-                replaced_rules = replaced_rules or original_f_fill != f_fill
-            else:
-                script = script_model.replace(TOFILL[lang2], f)
+        f_fill = (lang_processor.detokenize_code(f_fill) if not roberta_mode else f_fill.replace("#NEWLINE", "\n"))
+        ref = (lang_processor.detokenize_code(ref) if not roberta_mode else ref.replace("#NEWLINE", "\n"))
 
-            if f_fill == ref:
-                results_list.append(("success", "identical to gold"))
+        run_pg = globals()[f"run_{lang2}_program"]
 
-                if correct_functions and original_result[try_id][0] != "success":
-                    logger.debug(f"Fixed function through rule based fixes ({try_id}, {i}):\n{original_f_fill}\n{f_fill}\n{ref}")
-                    return results_list, i, True, 1, False, False
+        if lang2 == "python":
+            script_model = f"import numpy as np \nimport math\nfrom math import *\nimport collections\nfrom collections import *\nimport heapq\nimport itertools\nimport random\nimport sys\n\n{script_model}"
 
-                if try_id > 0:
-                    logger.debug(f"Fixed function through constrained beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
-                    return results_list, i, replaced_rules, 0, True, False
+        script_path = f"{outfolder}/{i}.{EXT[lang2]}"
 
-                if try_id in replaced_indices:
-                    logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
-                    return results_list, i, replaced_rules, 0, False, True
-                    
-                return results_list, i, replaced_rules, 0, False, False
-
-            if lang2 == "python":
-                script = f"import numpy as np \nimport math\nfrom math import *\nimport collections\nfrom collections import *\nimport heapq\nimport itertools\nimport random\nimport sys\n\n{script}"
-
-            script_path = f"{outfolder}/{i}.{EXT[lang2]}"
+        if correct_functions:
+            script = script_model.replace(TOFILL[lang2], f_fill)
             open(script_path, "w", encoding="utf-8").write(script)
-
-            run_pg = globals()[f"run_{lang2}_program"]
             result, _ = run_pg(script_path, i)
+            original_success = result[0] == "success"
+            os.remove(script_path)
 
-            if result[0] == "success":
-                results_list.append(result)
+            original_f = f_fill
+            errors = get_errors(f_fill, tgt_language=lang2)
+            f_fill = fix_code(f_fill, lang2, errors)
+        
+        if f_fill == ref:
+            results_list.append(("success", "identical to gold"))
 
-                if correct_functions and original_result[try_id][0] != "success":
-                    logger.debug(f"Fixed function through rule based fixes ({try_id}, {i}):\n{original_f_fill}\n{f_fill}\n{ref}")
-                    return results_list, i, True, 1, False, False
+            if correct_functions and not original_success:
+                logger.debug(f"Fixed function through rule based fixes ({try_id}, {i}):\n{original_f}\n{f_fill}\n{ref}")
+                return results_list, i, 1, False, False
 
-                if try_id > 0:
-                    logger.debug(f"Fixed function through beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
-                    return results_list, i, replaced_rules, 0, True, False
+            if try_id > 0:
+                logger.debug(f"Fixed function through constrained beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
+                return results_list, i, 0, True, False
 
-                if try_id in replaced_indices:
-                    logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
-                    return results_list, i, replaced_rules, 0, False, True
+            if try_id in replaced_indices:
+                logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
+                return results_list, i, 0, False, True
+                
+            return results_list, i, 0, False, False
 
-                return results_list, i, replaced_rules, 0, False, False
-            elif retry_mismatching_types and lang2 in {"cpp", "java"}:
-                try:
-                    script_transform_args = convert_filled_arguments(
-                        script_model, f_fill, lang2, lang_processor, f_name=f_name
-                    )
-                except KeyboardInterrupt:
-                    raise
-                except:
-                    script_transform_args = None
+        script = script_model.replace(TOFILL[lang2], f_fill)
+        open(script_path, "w", encoding="utf-8").write(script)
+        result, _ = run_pg(script_path, i)
 
-                if script_transform_args is not None:
-                    open(script_path, "w", encoding="utf-8").write(
-                        script_transform_args
-                    )
-                    run_pg = globals()[f"run_{lang2}_program"]
-                    result2, _ = run_pg(script_path, i)
-                    if result2[0] == "success":
-                        results_list.append(result2)
-                        return results_list, i, replaced_rules, 0, False, False
-                    else:
-                        result = (
-                            result2[0],
-                            "".join(
-                                [
-                                    result[1] if result[1] else "",
-                                    f"|| second run handling types mismatch: ## function ## {script_transform_args} ## output ## {result2[1]}",
-                                ]
-                            ),
-                        )
-
-            unsuccessful_path = f"unsuccessful.{lang1}_{lang2}.txt"
-
-            if os.path.exists(unsuccessful_path):
-                unsuccessful_file = open(unsuccessful_path, "r")
-                unsuccessful_lines = unsuccessful_file.readlines()
-                unsuccessful_file.close()
-            else:
-                unsuccessful_lines = []
-
-            if f"{i} |" not in [line.replace("\n", " |") for line in unsuccessful_lines]:
-                file = open(unsuccessful_path, "a")
-                file.write(i + "\n")
-                file.close()
-
-            if has_compile_errors(f_fill, tgt_language=lang2):
-                result = list(result)
-                result[0] = "compile_error"
-                result = tuple(result)
-
-            if correct_functions and original_result[try_id][0] == "success":
-                logger.debug(f"Introduced error in function with rule based fixes ({try_id}, {i}):\n{f_fill}\n{ref}")
-                return results_list, i, True, -1, False, False
-
+        if result[0] == "success":
             results_list.append(result)
-        else:
-            return [return_script_not_found()], i, replaced_rules, 0, False, False
 
-    return results_list, i, replaced_rules, 0, False, False
+            if correct_functions and not original_success:
+                logger.debug(f"Fixed function through rule based fixes ({try_id}, {i}):\n{original_f}\n{f_fill}\n{ref}")
+                return results_list, i, 1, False, False
+
+            if try_id > 0:
+                logger.debug(f"Fixed function through constrained beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
+                return results_list, i, 0, True, False
+
+            if try_id in replaced_indices:
+                logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
+                return results_list, i, 0, False, True
+
+            return results_list, i, 0, False, False
+
+        if has_compile_errors(f_fill, tgt_language=lang2):
+            result = list(result)
+            result[0] = "compile_error"
+            result = tuple(result)
+
+            unsuccessful_path = f"unsuccessful.{lang1}_{lang2}"
+            file = open(unsuccessful_path, "a")
+            file.write(i + "\n")
+            file.close()
+
+        results_list.append(result)
+
+        if correct_functions and original_success:
+            logger.debug(f"Corrupted function with rule based fixes ({try_id}, {i}):\n{original_f}\n{f_fill}\n{ref}")
+            return results_list, i, -1, False, False
+
+    return results_list, i, 0, False, False
 
 
 def eval_function_output(
@@ -426,7 +283,6 @@ def eval_function_output(
     lang2,
     outfolder,
     script_folder,
-    retry_mismatching_types,
     roberta_mode,
     evosuite_functions=False,
     evosuite_tests=None,
@@ -458,40 +314,20 @@ def eval_function_output(
     jobs = []
     executor = ProcessPoolExecutor()
 
-    results_stats = {
-        "success": 0,
-        "failure": 0,
-        "error": 0,
-        "timeout": 0,
-        "script_not_found": 0,
-        "identical_gold": 0,
-        "compile_error": 0,
-        "replaced_rules": 0,
-        "fixed_rules": 0,
-        "broken_rules": 0,
-        "replaced_constrained": 0,
-        "fixed_constrained": 0,
-        "replaced_knnmt": 0,
-        "fixed_knnmt": 0
-    }
+    for i, beam_functions in enumerate(functions):
+        has_replaced = False
 
-    if constrained:
-        for i, beam_functions in enumerate(functions):
-            has_replaced = False
+        if constrained:
+            for j, function in enumerate(beam_functions):
+                if not has_compile_errors(function, tgt_language=lang2):
+                    beam_functions = beam_functions[:j + 1]
+                    functions[i] = beam_functions
+                    has_replaced = True
+                    break
 
-            # for j, function in enumerate(beam_functions):
-            #     if not has_compile_errors(function, tgt_language=lang2):
-            #         if j > 0:
-            #             logger.debug(f"Replaced function with first compiling function in beam ({j})")
-            #             results_stats["replaced_constrained"] += 1
-            #         beam_functions = beam_functions[:j + 1]
-            #         functions[i] = beam_functions
-            #         has_replaced = True
-            #         break
-
-            if not has_replaced:
-                beam_functions = (beam_functions[0],)
-                functions[i] = beam_functions
+        if not has_replaced:
+            beam_functions = (beam_functions[0],)
+            functions[i] = beam_functions
 
     # For each function in list
     for f, knnmt_f, i, r in zip(functions, knnmt_functions, ids, refs):
@@ -500,8 +336,6 @@ def eval_function_output(
         # For each beam in tuple
         for index, function in enumerate(f):
             if knnmt_f is not None and has_compile_errors(function, tgt_language=lang2):
-                logger.debug(f"Replaced function with KNNMT function ({i}):\n{f[index]}\n{knnmt_f[index]}")
-                results_stats["replaced_knnmt"] += 1
                 replaced_indices.append(index)
                 f = list(f)
                 f[index] = knnmt_f[index]
@@ -529,16 +363,29 @@ def eval_function_output(
                     lang2,
                     outfolder,
                     script_folder,
-                    retry_mismatching_types,
                     roberta_mode,
                     correct_functions,
                     replaced_indices
                 )
             )
 
+    results_stats = {
+        "success": 0,
+        "failure": 0,
+        "error": 0,
+        "timeout": 0,
+        "script_not_found": 0,
+        "identical_gold": 0,
+        "compile_error": 0,
+        "fixed_rules": 0,
+        "corrupted_rules": 0,
+        "fixed_constrained": 0,
+        "fixed_knnmt": 0
+    }
+
     results = ["" for _ in range(len(ids))]
-    for job in jobs:
-        results_list, i, replaced_rules, rules_result, fixed_constrained, fixed_knnmt = job.result()
+    for job in tqdm(jobs):
+        results_list, i, rules_result, fixed_constrained, fixed_knnmt = job.result()
         nb_success = sum([r[0] == "success" for r in results_list])
         nb_identical = sum(
             [r[0] == "success" and r[1] == "identical to gold" for r in results_list]
@@ -553,12 +400,8 @@ def eval_function_output(
                 results_stats.get(results_list[0][0], 0) + 1
             )
 
-        if replaced_rules:
-            logger.debug(f"Replaced function with rule-based fixes ({i})")
-
-        results_stats["replaced_rules"] += 1 if replaced_rules else 0
         results_stats["fixed_rules"] += 1 if rules_result == 1 else 0
-        results_stats["broken_rules"] += 1 if rules_result == -1 else 0
+        results_stats["corrupted_rules"] += 1 if rules_result == -1 else 0
         results_stats["fixed_constrained"] += 1 if fixed_constrained else 0
         results_stats["fixed_knnmt"] += 1 if fixed_knnmt else 0
 
@@ -611,16 +454,6 @@ def python_test_filter(python_test):
 
 def return_script_not_found():
     return "script_not_found", None
-
-
-def transform_to_java_object_type(t):
-    if t not in primitive_types:
-        return t
-    if t == "int":
-        return "Integer"
-    if t == "char":
-        return "Character"
-    return t.capitalize()
 
 
 def get_return_type(tokenized_java):

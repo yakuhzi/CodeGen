@@ -1172,7 +1172,6 @@ def has_compile_errors(function: str, tgt_language: str) -> bool:
         return compile_errors != "success" and compile_errors != "timeout"
     elif tgt_language == "java":
         compile_errors = get_java_compilation_errors(function)
-        linting_errors = None
         return compile_errors != "success" and compile_errors != "timeout"
     elif tgt_language == "python":
         compile_errors = get_python_compilation_errors(function)
@@ -1185,15 +1184,14 @@ def get_errors(function: str, tgt_language: str) -> Tuple[str, str]:
         return compile_errors, None
     elif tgt_language == "java":
         compile_errors = get_java_compilation_errors(function)
-        linting_errors = None
-        return compile_errors, linting_errors
+        return compile_errors, None
     elif tgt_language == "python":
         compile_errors = get_python_compilation_errors(function)
         linting_errors = get_python_linting_errors(function)
         return compile_errors, linting_errors
 
 
-def get_java_compilation_errors(code, timeout=20):
+def get_java_compilation_errors(code, timeout=120):
     file = write_java_function(code)
     comp_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; {os.path.join(get_java_bin_path(), 'javac')} --module-path /home/hd/hd_hd/hd_tf268/code-gen/javafx-sdk-11/lib --add-modules javafx.base {file}"
     timed_out = False
@@ -1222,7 +1220,7 @@ def get_java_compilation_errors(code, timeout=20):
     return "success" if proc.returncode == 0 else proc.stderr.decode()
 
 
-def get_cpp_compilation_errors(code, timeout=20):
+def get_cpp_compilation_errors(code, timeout=120):
     file = write_cpp_function(code)
     comp_cmd = f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; g++ {file} -o {file}_cpp -c"
     timed_out = False

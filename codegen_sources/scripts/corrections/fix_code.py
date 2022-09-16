@@ -1,8 +1,7 @@
 import re
-from compileall import compile_file
 from typing import Tuple
 
-from tree_sitter import Language, Node, Parser, TreeCursor
+from tree_sitter import Language, Parser, TreeCursor
 from logging import getLogger
 
 from ...preprocessing.lang_processors.lang_processor import LangProcessor
@@ -12,16 +11,7 @@ TOFILL = {"python": "#TOFILL", "java": "//TOFILL", "cpp": "//TOFILL"}
 logger = getLogger()
 
 
-def fix_code(
-    script_model: str,
-    f_fill: str,
-    lang: str,
-    lang_processor: LangProcessor,
-    f_name: str,
-    errors: str
-) -> str:
-    f_fill = lang_processor.detokenize_code(f_fill)
-    f_fill = f_fill.replace(f_name, "f_filled")
+def fix_code(f_fill: str, lang: str, errors: str) -> str:
     logger.debug("=" * 100)
     logger.debug(f"ORIGINAL\n{f_fill}")
     logger.debug("=" * 100)
@@ -44,7 +34,7 @@ def fix_code(
     logger.debug("=" * 100)
     logger.debug(f"FIXED\n{f_fill}")
     logger.debug("=" * 100)
-    return script_model.replace(TOFILL[lang], "\n".join([f_fill, "\n"])), f_fill.replace("f_filled", f_name)
+    return f_fill
 
 
 def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str, str]) -> str:
