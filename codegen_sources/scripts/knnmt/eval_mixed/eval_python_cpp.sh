@@ -3,11 +3,11 @@
 #SBATCH --time=1:15:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=combined_eval_corrections_constrained_python_cpp
-#SBATCH --output=combined_eval_corrections_constrained_python_cpp_%j.log
+#SBATCH --job-name=knnmt_mixed_eval_python_cpp
+#SBATCH --output=knnmt_mixed_eval_python_cpp_%j.log
 
 MODEL_PATH='models/Online_ST_Python_CPP.pth'
-DUMP_PATH='dump/combined/corrections_constrained/python_cpp'
+DUMP_PATH='dump/knnmt/mixed/python_cpp'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
@@ -49,6 +49,5 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
-    --beam_size 10 \
-    --constrained true \
-    --correct_functions true \
+    --knnmt_dir 'out/knnmt/mixed' \
+    --beam_size 10

@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=2:00:00
+#SBATCH --time=0:45:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=corrections_eval_java_cpp
 #SBATCH --output=corrections_eval_java_cpp_%j.log
 
-MODEL_PATH='models/transcoder_st/Online_ST_Java_CPP.pth'
-DUMP_PATH='dump/transcoder_st_corrections/eval/java_cpp'
+MODEL_PATH='models/Online_ST_Java_CPP.pth'
+DUMP_PATH='dump/corrections/java_cpp'
 DATASET_PATH='dataset/transcoder/test'
 
 python -m codegen_sources.model.train \
@@ -49,6 +49,6 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
-    --beam_size 1 \
+    --beam_size 10 \
     --constrained false \
     --correct_functions true

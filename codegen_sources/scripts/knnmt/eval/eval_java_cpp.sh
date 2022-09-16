@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=0:30:00
+#SBATCH --time=1:15:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=ev_jc_knn
-#SBATCH --output=transcoder_st_java_cpp_knn_mixed_%j.log
+#SBATCH --job-name=knnmt_eval_java_cpp
+#SBATCH --output=knnmt_eval_java_cpp_%j.log
 
 MODEL_PATH='models/Online_ST_Java_CPP.pth'
-DUMP_PATH='dump/knnmt/eval/java_cpp'
+DUMP_PATH='dump/knnmt/plain/java_cpp'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
@@ -49,5 +49,5 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
-    --knnmt_dir '/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt' \
-    --beam_size 1
+    --knnmt_dir 'out/knnmt/parallel_corpus' \
+    --beam_size 10

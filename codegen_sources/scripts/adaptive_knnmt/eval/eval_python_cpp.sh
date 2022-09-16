@@ -49,7 +49,7 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
-    --beam_size 1 \
-    --knnmt_dir '/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt' \
-    --meta_k_checkpoint '/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/checkpoints/knnmt/python_cpp/S0_KT10_TT1_K32_H32_L1e-05_B0.9-0.98/380312/best-epoch=46.ckpt' \
-    --eval_unsuccessful_only false
+    --beam_size 10 \
+    #--knnmt_dir '/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt' \
+    #--meta_k_checkpoint 'dump/adaptive_knnmt/checkpoints/python_cpp/BS32_KT10_TT1_MK32_TK32_HS32_LR0.0001_B0.9-0.98/100248/best-epoch=41.ckpt' \
+    --unsuccessful_dir 'codegen_sources/scripts/unsuccessful/compilation_errors'

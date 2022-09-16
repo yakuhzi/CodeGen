@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=2:00:00
+#SBATCH --time=1:15:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=combined_eval_corrections_constrained_cpp_java
 #SBATCH --output=combined_eval_corrections_constrained_cpp_java_%j.log
 
 MODEL_PATH='models/Online_ST_CPP_Java.pth'
-DUMP_PATH='dump/transcoder_st_combined/eval/cpp_java'
+DUMP_PATH='dump/combined/corrections_constrained/cpp_java'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
@@ -49,7 +49,6 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
-    --beam_size 20 \
+    --beam_size 10 \
     --constrained true \
     --correct_functions true \
-    --eval_unsuccessful_only false \

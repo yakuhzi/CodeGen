@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=2:00:00
+#SBATCH --time=1:00:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=constrained_eval_python_java
 #SBATCH --output=constrained_eval_python_java_%j.log
 
 MODEL_PATH='models/Online_ST_Python_Java.pth'
-DUMP_PATH='dump/transcoder_st_constraints/eval/python_java'
+DUMP_PATH='dump/constrained/python_java'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
@@ -49,6 +49,6 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
-    --beam_size 20 \
+    --beam_size 10 \
     --constrained true \
     --correct_functions false

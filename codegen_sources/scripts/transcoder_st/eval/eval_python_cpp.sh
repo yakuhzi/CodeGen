@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=0:30:00
+#SBATCH --time=0:45:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=transcoder_st_eval_python_cpp_
+#SBATCH --job-name=transcoder_st_eval_python_cpp
 #SBATCH --output=transcoder_st_eval_python_cpp_%j.log
 
 MODEL_PATH='models/Online_ST_Python_CPP.pth'
-DUMP_PATH='dump/transcoder_st/eval/python_cpp'
+DUMP_PATH='dump/transcoder_st/python_cpp'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
@@ -49,5 +49,5 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
-    --beam_size 1 \
-    --eval_unsuccessful_only false \
+    --beam_size 10 \
+ \

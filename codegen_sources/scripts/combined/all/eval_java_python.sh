@@ -7,7 +7,7 @@
 #SBATCH --output=combined_eval_all_java_python_%j.log
 
 MODEL_PATH='models/Online_ST_Java_Python.pth'
-DUMP_PATH='dump/transcoder_st_combined/eval/java_python'
+DUMP_PATH='dump/combined/all/java_python'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
@@ -49,9 +49,6 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
-    --beam_size 20 \
+    --beam_size 10 \
     --constrained true \
     --correct_functions true \
-    --eval_unsuccessful_only false \
-    # --knnmt_dir '/pfs/work7/workspace/scratch/hd_tf268-code-gen/knnmt_mixed' \
-    # --meta_k_checkpoint '/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/checkpoints/cpp_java/BS32_KT10_TT5_MK8_TK8_HS64_LR1e-05_B0.9-0.98/547620/best-epoch=134.ckpt' \

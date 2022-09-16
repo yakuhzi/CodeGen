@@ -41,4 +41,3 @@ python -m codegen_sources.model.train \
     --eval_only true \
     --n_sentences_eval 1500 \
     --beam_size 1 \
-    --eval_unsuccessful_only false
