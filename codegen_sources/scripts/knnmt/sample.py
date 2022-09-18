@@ -90,7 +90,7 @@ def add_sample(knnmt: KNNMT, language_pair: str, data_index: int):
     knnmt.save_datastore(language_pair)
     knnmt.train_datastore(language_pair)
 
-knnmt = KNNMT("knnmt/mixed")
+knnmt = KNNMT("out/knnmt/mixed")
 
 language_pair = "cpp_java"
 output_sample(knnmt, language_pair, 229)

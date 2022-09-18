@@ -7,7 +7,7 @@
 #SBATCH --output=knnmt_eval_python_java_%j.log
 
 MODEL_PATH='models/Online_ST_Python_Java.pth'
-DUMP_PATH='dump/knnmt/plain/python_java'
+DUMP_PATH='dump/knnmt/parallel_corpus/python_java'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \

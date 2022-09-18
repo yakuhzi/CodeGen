@@ -337,7 +337,7 @@ def load_para_data(params, data):
                     indices.append(index[0])
 
                 dataset.select_specific_data(indices)
-                print("IND", indices)
+                print("Selected test functions", indices)
 
             # remove empty and too long sentences
             # if splt == 'train':

@@ -733,7 +733,7 @@ class TransformerModel(nn.Module):
                 next_words = targets[cur_len]
             elif sample_temperature is None:
                 if use_knn_store:
-                    next_words, replaced_indices = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id, meta_k=meta_k)
+                    next_words = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id, meta_k=meta_k)
                 else:
                     next_words = torch.topk(scores, 1)[1].squeeze(1)
             else:
@@ -1014,39 +1014,31 @@ class TransformerModel(nn.Module):
         return decoded, tgt_len, sorted([h[0] for h in hypotheses.hyp], reverse=True)
 
     def predict_next_words(self, features, scores, src_lang_id: int, tgt_lang_id: int, beam_size: int=1, meta_k: Optional[MetaK]=None):
+        batch_size = int(features.size(0) / beam_size)
+
         if meta_k is not None:
             knn_tgt_prob = meta_k.combined_prediction(features, scores).cuda()
             
             if beam_size == 1:
                 next_words = torch.argmax(knn_tgt_prob, dim=1)
-                return next_words, []
+                return next_words
             else:
-                next_words = torch.argmax(knn_tgt_prob, dim=1)
-                next_scores = torch.max(knn_tgt_prob, dim=1)
-                return next_scores, next_words.cuda()
+                _knn_tgt_prob = knn_tgt_prob.view(batch_size, beam_size * self.n_words)
+                return torch.topk(_knn_tgt_prob, 2 * beam_size, dim=1, largest=True, sorted=True)
 
         k = 8 # * beam_size
         knn_temperature = 10
         tc_temperature = 5
-        # lmbda = 0.5
+        knn_lambda = [0.5 for i in range(batch_size)]
 
         src_language = self.id2lang[src_lang_id].split("_")[0]
         tgt_language = self.id2lang[tgt_lang_id].split("_")[0]
 
         knn_targets, knn_distances = self.knnmt.get_k_nearest_neighbors(
-            features, 
+            features,
             language_pair=f"{src_language}_{tgt_language}", 
             k=k
         )
-
-        distinct_neighbors = [len(set(indices)) for indices in knn_targets]
-        knn_lambda = [0.9 if count == 1 else (0.7 if count == 2 else (0.5 if count == 3 else 0.2)) for count in distinct_neighbors]
-
-        # print("KNNS", knn_targets)
-        # print("LAMBDA", knn_lambda)
-        # print("KNN TGT PROB", knn_tgt_prob.argmax(1).item(), self.dico[knn_tgt_prob.argmax(1).item()])
-        # print("SCORES", scores.argmax(1).item(), self.dico[scores.argmax(1).item()])
-        # print("TGT PROB", tgt_prob.argmax(1).item(), self.dico[tgt_prob.argmax(1).item()])
 
         tc_topk = torch.topk(scores, k)
         tc_targets = tc_topk[1]
@@ -1055,14 +1047,14 @@ class TransformerModel(nn.Module):
         normalized_knn_distances = F.softmax(torch.tensor(knn_distances / knn_temperature * -1), dim=-1)
         normalized_tc_scores = F.softmax(tc_scores.float() / tc_temperature, dim=-1) # TODO: Add temperature?
 
-        limit = 5000
-        clipped_distances = (limit - np.clip(knn_distances, 0, limit)) / limit
-        normalized_knn_distances = normalized_knn_distances * clipped_distances
+        # limit = 5000
+        # clipped_distances = (limit - np.clip(knn_distances, 0, limit)) / limit
+        # normalized_knn_distances = normalized_knn_distances * clipped_distances
+        # distinct_neighbors = [len(set(indices)) for indices in knn_targets]
+        # knn_lambda = [0.9 if count == 1 else (0.7 if count == 2 else (0.5 if count == 3 else 0.2)) for count in distinct_neighbors]
 
         next_scores = []
         next_words = []
-        replaced_indices = []
-        batch_size = int(features.size(0) / beam_size)
 
         for batch_index in range(batch_size):
             target_scores = {}
@@ -1099,24 +1091,13 @@ class TransformerModel(nn.Module):
 
             if beam_size == 1:
                 next_words.append(best_targets[0])
-                tc_greedy_target = tc_targets[batch_index][0].item()
-
-                if best_targets[0] != tc_greedy_target:
-                    # print(f"KNNMT: Used '{self.dico[best_targets[0]]}' ({best_targets[0]}) instead of '{self.dico[tc_greedy_target]}' ({tc_greedy_target})")
-                    replaced_indices.append(batch_index)
             else:
                 best_scores = [target_scores[target] for target in best_targets]
                 next_scores.append(best_scores)
                 next_words.append(best_targets)
             
-            # print("\n")
-            # print("KNN", knn_targets[batch_index][:5], [self.dico[t.item()] for t in knn_targets[batch_index][:5]], knn_distances[batch_index][:3], normalized_knn_distances[batch_index][:5])
-            # print("SCORES", tc_targets[batch_index][:5], [self.dico[t.item()] for t in tc_targets[batch_index][:5]], tc_scores[batch_index][:3], normalized_tc_scores[batch_index][:5])
-            # print("PRED", target, self.dico[target], tc_greedy_target, self.dico[tc_greedy_target])
-            # print("\n")
-
         if beam_size == 1:
-            return torch.tensor(next_words).cuda(), replaced_indices
+            return torch.tensor(next_words).cuda()
         else:
             return torch.tensor(next_scores).cuda(), torch.tensor(next_words).cuda()
 

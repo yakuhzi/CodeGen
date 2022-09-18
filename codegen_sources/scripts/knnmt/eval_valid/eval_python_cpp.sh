@@ -7,7 +7,7 @@
 #SBATCH --output=knnmt_valid_eval_python_cpp_%j.log
 
 MODEL_PATH='models/Online_ST_Python_CPP.pth'
-DUMP_PATH='dump/knnmt/valid/python_cpp'
+DUMP_PATH='dump/knnmt/validation_set/python_cpp'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
