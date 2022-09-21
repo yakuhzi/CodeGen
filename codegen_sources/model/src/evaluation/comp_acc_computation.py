@@ -211,6 +211,7 @@ def submit_functions(
             script = script_model.replace(TOFILL[lang2], f_fill)
             open(script_path, "w", encoding="utf-8").write(script)
             result, _ = run_pg(script_path, i)
+            
             original_success = result[0] == "success"
             os.remove(script_path)
 
@@ -225,13 +226,13 @@ def submit_functions(
                 logger.debug(f"Fixed function through rule based fixes ({try_id}, {i}):\n{original_f}\n{f_fill}\n{ref}")
                 return results_list, i, 1, False, False
 
-            if try_id > 0:
-                logger.debug(f"Fixed function through constrained beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
-                return results_list, i, 0, True, False
-
             if try_id in replaced_indices:
                 logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
                 return results_list, i, 0, False, True
+
+            if try_id > 0:
+                logger.debug(f"Fixed function through constrained beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
+                return results_list, i, 0, True, False
                 
             return results_list, i, 0, False, False
 
@@ -246,13 +247,13 @@ def submit_functions(
                 logger.debug(f"Fixed function through rule based fixes ({try_id}, {i}):\n{original_f}\n{f_fill}\n{ref}")
                 return results_list, i, 1, False, False
 
-            if try_id > 0:
-                logger.debug(f"Fixed function through constrained beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
-                return results_list, i, 0, True, False
-
             if try_id in replaced_indices:
                 logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
                 return results_list, i, 0, False, True
+
+            if try_id > 0:
+                logger.debug(f"Fixed function through constrained beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
+                return results_list, i, 0, True, False
 
             return results_list, i, 0, False, False
 
@@ -261,10 +262,10 @@ def submit_functions(
             result[0] = "compile_error"
             result = tuple(result)
 
-            unsuccessful_path = f"unsuccessful.{lang1}_{lang2}"
-            file = open(unsuccessful_path, "a")
-            file.write(i + "\n")
-            file.close()
+            # unsuccessful_path = f"unsuccessful.{lang1}_{lang2}"
+            # file = open(unsuccessful_path, "a")
+            # file.write(i + "\n")
+            # file.close()
 
         results_list.append(result)
 
@@ -314,33 +315,29 @@ def eval_function_output(
     jobs = []
     executor = ProcessPoolExecutor()
 
-    for i, beam_functions in enumerate(functions):
-        has_replaced = False
-
-        if constrained:
-            for j, function in enumerate(beam_functions):
-                if not has_compile_errors(function, tgt_language=lang2):
-                    beam_functions = beam_functions[:j + 1]
-                    functions[i] = beam_functions
-                    has_replaced = True
-                    break
-
-        if not has_replaced:
-            beam_functions = (beam_functions[0],)
-            functions[i] = beam_functions
-
     # For each function in list
     for f, knnmt_f, i, r in zip(functions, knnmt_functions, ids, refs):
         replaced_indices = []
+        has_replaced = False
+        f = list(f)
 
         # For each beam in tuple
         for index, function in enumerate(f):
+            if constrained and not has_compile_errors(function, tgt_language=lang2):
+                f = f[:index + 1]
+                has_replaced = True
+                break
+
             if knnmt_f is not None and has_compile_errors(function, tgt_language=lang2):
                 replaced_indices.append(index)
-                f = list(f)
-                f[index] = knnmt_f[index]
-                f = tuple(f)
-                
+                function = knnmt_f[index]
+                f[index] = function
+
+        if not has_replaced:
+            f = f[0]
+
+        f = tuple(f)
+                    
         if evosuite_functions:
             jobs.append(
                 executor.submit(

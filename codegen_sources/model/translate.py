@@ -121,6 +121,8 @@ class Translator:
             self.meta_k = MetaK.load_from_checkpoint(meta_k_checkpoint).cuda()
             self.meta_k.knnmt = KNNMT(knnmt_dir)
             self.meta_k.freeze()
+        else:
+            self.meta_k = None
 
         # build model / reload weights (in the build_model method)
         encoder, decoder = build_model(self.reloaded_params, self.dico, knnmt_dir=knnmt_dir)

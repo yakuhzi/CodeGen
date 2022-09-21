@@ -1013,7 +1013,15 @@ class TransformerModel(nn.Module):
         assert (decoded == self.eos_index).sum() == 2 * beam_size * bs
         return decoded, tgt_len, sorted([h[0] for h in hypotheses.hyp], reverse=True)
 
-    def predict_next_words(self, features, scores, src_lang_id: int, tgt_lang_id: int, beam_size: int=1, meta_k: Optional[MetaK]=None):
+    def predict_next_words(
+        self, 
+        features,
+        scores, 
+        src_lang_id: int, 
+        tgt_lang_id: int, 
+        beam_size: int=1, 
+        meta_k: Optional[MetaK]=None
+    ):
         batch_size = int(features.size(0) / beam_size)
 
         if meta_k is not None:
