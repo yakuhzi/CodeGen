@@ -6,8 +6,8 @@ from tree_sitter import Language, Parser, TreeCursor
 from codegen_sources.model.translate import Translator
 
 
-DATASET_PATH = 'dataset/transcoder/test'
-MODEL_PATH = 'models/transcoder/TransCoder_model_1.pth'
+DATASET_PATH = 'data/test_dataset/transcoder_test.java.tok'
+MODEL_PATH = 'models/Online_ST_Java_Python.pth'
 BPE_PATH = 'data/bpe/cpp-java-python/codes'
 
 
@@ -23,7 +23,6 @@ def traverse_tree(cursor: TreeCursor, retracing=False):
     if cursor.node.type != "block" and cursor.goto_parent():
         return traverse_tree(cursor, True)
 
-    
     cursor.goto_first_child()
     nodes.append(cursor.node)
 
@@ -31,11 +30,6 @@ def traverse_tree(cursor: TreeCursor, retracing=False):
         nodes.append(cursor.node)
 
     return (n for n in nodes if n.type != "{" and n.type != "}")
-
-def parse_cpp(code: str, cursor: TreeCursor):
-    print("========================================")
-    assert cursor.goto_first_child()
-    # print(code[cursor.node.start_byte: cursor.node.end_byte])
 
 
 def parse_java(code: str, cursor: TreeCursor):
@@ -51,11 +45,13 @@ def parse_java(code: str, cursor: TreeCursor):
             result = translator.translate(
                 f"public static int a() {{\n    {snippet}\n}}",
                 lang1='java',
-                lang2='python',
+                lang2='cpp',
                 beam_size=1,
             )
 
-            translation = '\n'.join(result[0].replace("\n\n", "\n").split("\n")[1:-1])
+            print(result)
+
+            translation = '\n'.join(result[0].replace("\n  ", "\n").replace("\n\n", "\n").split("\n")[1:-1]).replace("\n}", "")
 
             if "return" in translation.split("\n")[-1] and snippet.count("return") != translation.count("return"):
                 translation = '\n'.join(translation.split("\n")[:-1])
@@ -71,17 +67,16 @@ def parse_java(code: str, cursor: TreeCursor):
     print("\n".join(output))
 
 
-def parse_python(code: str, cursor: TreeCursor):
-    print("========================================")
-
-
 def parse_file(path: str):
     language = path.split(".")[-2]
     parser = Parser()
-    parser.set_language(Language('scripts/parsing/build/library.so', language))
+    parser.set_language(Language('scripts/snippets/build/library.so', language))
 
     with open(path) as file:
-        for line in file:
+        for index, line in enumerate(file):
+            if index != 863:
+                continue
+
             function_id = line.split(" | ")[0]
             function = " | ".join(line.split(" | ")[1:])
 
@@ -89,18 +84,13 @@ def parse_file(path: str):
             tree = parser.parse(code)
             cursor = tree.walk()
 
-            if language == "cpp":
-                parse_cpp(code, cursor)
-            elif language == "java":
-                parse_java(code, cursor)
-            elif language == "python":
-                parse_python(code, cursor)
+            parse_java(code, cursor)
             return
 
 
 if __name__ == "__main__":
     Language.build_library(
-        'scripts/parsing/build/library.so',
+        'scripts/snippets/build/library.so',
         [
             'tree-sitter/tree-sitter-cpp',
             'tree-sitter/tree-sitter-java',
@@ -109,11 +99,5 @@ if __name__ == "__main__":
     )
 
     # Initialize translator
-    translator = Translator('models/transcoder_st/Online_ST_Java_Python.pth', 'data/bpe/cpp-java-python/codes')
-
-    for subdir, dirs, files in os.walk(DATASET_PATH):
-        for file in files:
-            if not file.endswith("java.tok"):
-                continue
-
-            parse_file(os.path.join(subdir, file))
+    translator = Translator(MODEL_PATH, BPE_PATH)
+    parse_file(DATASET_PATH)

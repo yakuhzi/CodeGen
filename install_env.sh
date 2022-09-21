@@ -1,6 +1,6 @@
 # Conda environment
-conda create --name cg python=3.6.9
-conda activate cg
+conda create --name c2c-translation python=3.6.9
+conda activate c2c-translation
 conda config --add channels conda-forge
 conda config --add channels pytorch
 
