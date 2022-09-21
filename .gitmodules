@@ -1,3 +1,0 @@
-[submodule "codegen_sources/scripts/tc-rules"]
-	path = codegen_sources/scripts/tc-rules
-	url = git@github.com:yakuhzi/tc-rules.git

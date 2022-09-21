@@ -12,7 +12,7 @@ conda install cudatoolkit=11.3 cudatoolkit-dev=11.3
 conda install six scikit-learn stringcase ply slimit astunparse submitit
 pip install transformers cython sacrebleu=="1.2.11" javalang tree_sitter psutil fastBPE
 pip install hydra-core --upgrade --pre
-pip install black==19.10b0 pylint pandas faiss-gpu tdqm pycuda pytorch_lightning torch_scatter
+pip install black==19.10b0 pylint pandas faiss-gpu tdqm pycuda pytorch_lightning torch_scatter thefuzz
 
 # FastBPE
 cd codegen_sources/model/tools

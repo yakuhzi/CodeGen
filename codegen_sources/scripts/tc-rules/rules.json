@@ -1,0 +1,100 @@
+{
+    "local_variable_declaration": [
+        [
+            "type name = value;\n",
+            "type name = value;\n",
+            "name = value\n"
+        ],
+        [
+            "type name = name operator value;\n",
+            "type name = name operator value;\n",
+            "name = name operator value\n"
+        ],
+        [
+            "type name = name operator name;\n",
+            "type name = name operator name;\n",
+            "name = name operator name\n"
+        ],
+        [
+            "type name = value operator value;\n",
+            "type name = value operator value;\n",
+            "name = value operator value\n"
+        ]
+    ],
+    "expression_statement": [
+        [
+            "type name = value;\n",
+            "type name = value;\n",
+            "name = value\n"
+        ],
+        [
+            "name = value;\n",
+            "name = value;\n",
+            "name = value\n"
+        ],
+        [
+            "name = name operator value;\n",
+            "name = name operator value;\n",
+            "name = name operator value\n"
+        ],
+        [
+            "type name = name operator value;\n",
+            "type name = name operator value;\n",
+            "name = name operator value\n"
+        ],
+        [
+            "name = name operator name;\n",
+            "name = name operator name;\n",
+            "name = name operator name\n"
+        ],
+        [
+            "type name = name operator name;\n",
+            "type name = name operator name;\n",
+            "name = name operator name\n"
+        ],
+        [
+            "type name = value operator value;\n",
+            "type name = value operator value;\n",
+            "name = value operator value\n"
+        ],
+        [
+            "name = value operator value;\n",
+            "name = value operator value;\n",
+            "name = value operator value\n"
+        ],
+        [
+            "name = operatorname;\n",
+            "name = operatorname;\n",
+            "operatorname\n"
+        ],
+        [
+            "name operator name;\n",
+            "name operator name;\n",
+            "name operator name\n"
+        ],
+        [
+            "std::cout<<@;\n",
+            "System.out.println(@);\n",
+            "print(@)\n"
+        ],
+        [
+            "name = name operator name operator name;\n",
+            "name = name operator name operator name;\n",
+            "name = name operator name operator name\n"
+        ]
+    ],
+    "if_statement": [
+        [
+            "if (@) {\n    @\n}\n",
+            "if (@) {\n    @\n}\n",
+            "if @:\n    @\n"
+        ]
+    ],
+    "while_statement": [
+        [
+            "while (@) {\n    @\n}\n",
+            "while (@) {\n    @\n}\n",
+            "while @:\n    @\n"
+        ]
+    ]
+}
