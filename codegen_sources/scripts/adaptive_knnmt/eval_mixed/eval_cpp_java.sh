@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=1:15:00
+#SBATCH --time=2:00:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=knnmt_mixed_eval_cpp_java
-#SBATCH --output=knnmt_mixed_eval_cpp_java_%j.log
+#SBATCH --job-name=adaptive_knnmt_mixed_eval_cpp_java
+#SBATCH --output=adaptive_knnmt_mixed_cpp_java_%j.log
 
 MODEL_PATH='models/Online_ST_CPP_Java.pth'
-DUMP_PATH='dump/knnmt/mixed/cpp_java'
+DUMP_PATH='dump/adaptive_knnmt/eval_mixed/cpp_java'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
@@ -49,7 +49,7 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
-    --knnmt_dir 'out/knnmt/mixed' \
     --beam_size 10 \
-    #--meta_k_checkpoint 'out/adaptive_knnmt/checkpoints/cpp_java/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/602852/best-epoch=59.ckpt' \
-    #--unsuccessful_dir 'codegen_sources/scripts/unsuccessful/all_errors' \
+    --knnmt_dir 'out/knnmt/mixed' \
+    --meta_k_checkpoint 'out/adaptive_knnmt/checkpoints/cpp_java/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/602852/best-epoch=59.ckpt' \
+    # --unsuccessful_dir 'codegen_sources/scripts/unsuccessful/compilation_errors'

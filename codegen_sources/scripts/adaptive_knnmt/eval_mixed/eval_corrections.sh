@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=0:30:00
+#SBATCH --time=1:15:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=ev_pj_aknn
-#SBATCH --output=transcoder_st_python_java_aknn_mixed_%j.log
+#SBATCH --job-name=adaptive_knnmt_corrections_eval_cpp_java
+#SBATCH --output=adaptive_knnmt_corrections_eval_cpp_java_%j.log
 
-MODEL_PATH='models/Online_ST_Python_Java.pth'
-DUMP_PATH='dump/adaptive_knnmt/eval/python_java'
+MODEL_PATH='models/Online_ST_CPP_Java.pth'
+DUMP_PATH='dump/adaptive_knnmt/corrections/cpp_java'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
@@ -21,7 +21,7 @@ python -m codegen_sources.model.train \
     --emb_dim 1024 \
     --n_heads 8 \
     --dropout '0.1' \
-    --lgs 'python_sa-java_sa' \
+    --lgs 'cpp_sa-java_sa' \
     --max_vocab 64000 \
     --max_len 512 \
     --reload_model "${MODEL_PATH},${MODEL_PATH}" \
@@ -33,15 +33,15 @@ python -m codegen_sources.model.train \
     --epoch_size 2500 \
     --max_epoch 10000000 \
     --clip_grad_norm 1 \
-    --stopping_criterion 'valid_python_sa-java_sa_mt_comp_acc,25' \
-    --validation_metrics 'valid_python_sa-java_sa_mt_comp_acc' \
+    --stopping_criterion 'valid_cpp_sa-java_sa_mt_comp_acc,25' \
+    --validation_metrics 'valid_cpp_sa-java_sa_mt_comp_acc' \
     --has_sentence_ids 'valid|para,test|para' \
     --eval_bleu true \
     --eval_computation true \
     --generate_hypothesis true \
     --eval_st false \
     --eval_only true \
-    --st_steps 'python_sa-java_sa' \
+    --st_steps 'cpp_sa-java_sa' \
     --st_beam_size 20 \
     --lambda_st 1 \
     --robin_cache false \
@@ -49,7 +49,7 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
+    --knnmt_dir 'out/knnmt/corrections' \
     --beam_size 10 \
-    --knnmt_dir 'out/knnmt/mixed' \
-    --meta_k_checkpoint '/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/checkpoints/knnmt/python_cpp/S0_KT10_TT1_K32_H32_L3e-05_B0.9-0.98_TEST5/best-epoch=13.ckpt' \
-    --unsuccessful_dir 'codegen_sources/unsuccessful/compilation_errors'
+    --meta_k_checkpoint 'out/adaptive_knnmt/checkpoints/cpp_java/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/602852/best-epoch=59.ckpt' \
+    #--unsuccessful_dir 'codegen_sources/scripts/unsuccessful/all_errors' \

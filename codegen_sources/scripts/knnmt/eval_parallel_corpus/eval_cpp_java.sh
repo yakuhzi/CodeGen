@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=0:30:00
+#SBATCH --time=1:15:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=ev_cj_aknn
-#SBATCH --output=transcoder_st_cpp_java_aknn_mixed_%j.log
+#SBATCH --job-name=knnmt_eval_cpp_java
+#SBATCH --output=knnmt_eval_cpp_java_%j.log
 
 MODEL_PATH='models/Online_ST_CPP_Java.pth'
-DUMP_PATH='dump/adaptive_knnmt/eval/cpp_java'
+DUMP_PATH='dump/knnmt/parallel_corpus/cpp_java'
 DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
@@ -49,7 +49,6 @@ python -m codegen_sources.model.train \
     --st_limit_tokens_per_batch true \
     --st_remove_proba '0.3' \
     --st_sample_cache_ratio '0.5' \
+    --knnmt_dir 'out/knnmt/parallel_corpus' \
     --beam_size 10 \
-    --knnmt_dir 'out/knnmt/mixed' \
-    --meta_k_checkpoint '/pfs/work7/workspace/scratch/hd_tf268-code-gen/dump/adaptive_knnmt/checkpoints/cpp_java/BS32_KT10_TT5_MK8_TK8_HS64_LR1e-05_B0.9-0.98/547620/best-epoch=134.ckpt' \
-    --unsuccessful_dir 'codegen_sources/unsuccessful/compilation_errors'
+    #--unsuccessful_dir 'codegen_sources/scripts/unsuccessful/compilation_errors'

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --ntasks=1
-#SBATCH --time=2:00:00
+#SBATCH --time=3:00:00
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=combined_eval_all_python_java
@@ -52,3 +52,5 @@ python -m codegen_sources.model.train \
     --beam_size 10 \
     --constrained true \
     --correct_functions true \
+    --knnmt_dir 'out/knnmt/mixed' \
+    --meta_k_checkpoint 'out/adaptive_knnmt/checkpoints/python_java/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/184136/best-epoch=70.ckpt' \
