@@ -33,7 +33,7 @@ class DataModule(LightningDataModule):
         translator_path = translator_path.replace("Cpp", "CPP")
         translator = Translator(translator_path, self.bpe_path, global_model=True)
 
-        parallel_functions = load_validation_functions(self.dataset_dir, self.language_pair)
+        parallel_functions = load_validation_functions(self.dataset_dir, self.language_pair, half=2)
 
         self.train_dataset = Dataset(
             parallel_functions=parallel_functions, 

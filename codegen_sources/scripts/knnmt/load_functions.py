@@ -100,7 +100,7 @@ def load_avatar_functions(dataset_path: str, language_pair: str=None):
 
     return parallel_functions
 
-def load_validation_functions(validation_set_path: str, language_pair: str=None):
+def load_validation_functions(validation_set_path: str, language_pair: str=None, half: int=0):
     if language_pair is None or "cpp" in language_pair:
         cpp_functions = extract_functions(f"{validation_set_path}/transcoder_valid.cpp.tok")
 
@@ -131,7 +131,12 @@ def load_validation_functions(validation_set_path: str, language_pair: str=None)
         parallel_functions["python_java"] = list(zip(python_functions, java_functions))
 
     if language_pair is not None:
-        return parallel_functions[language_pair]
+        if half == 0:
+            return parallel_functions[language_pair]
+        elif half == 1:
+            return parallel_functions[language_pair][:int(len(parallel_functions[language_pair]) / 2)]
+        else:
+            return parallel_functions[language_pair][int(len(parallel_functions[language_pair]) / 2):]
 
     return parallel_functions
 

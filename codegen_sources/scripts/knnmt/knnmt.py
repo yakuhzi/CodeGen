@@ -16,6 +16,7 @@ class KNNMT:
     def __init__(self, knnmt_dir: str):
         self.lock = threading.Lock()
 
+        self.knnmt_dir = knnmt_dir
         self.faiss_index = {}
         self.datastore_keys = {}
         self.datastore_values = {}

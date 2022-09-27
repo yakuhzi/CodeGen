@@ -9,7 +9,7 @@ def parse_arguments() -> Namespace:
         dest="language_pair",
         help="Language pair to train on",
         type=str,
-        default="python_cpp"
+        default="cpp_java"
     )
 
     parser.add_argument(
@@ -18,7 +18,7 @@ def parse_arguments() -> Namespace:
         dest="epochs",
         help="Number of epochs for training",
         type=int,
-        default=50
+        default=100
     )
 
     parser.add_argument(
@@ -87,7 +87,7 @@ def parse_arguments() -> Namespace:
         dest="tc_temperature",
         help="TransCoder distance temperature",
         type=int,
-        default=1
+        default=3
     )
 
     parser.add_argument(
@@ -136,7 +136,7 @@ def parse_arguments() -> Namespace:
         dest="knnmt_dir",
         help="Path to the directory containing the KNN datastore and faiss index",
         type=str,
-        default="out/knnmt/parallel_corpus"
+        default="out/knnmt/mixed_half"
     )
 
     parser.add_argument(

@@ -97,11 +97,15 @@ def run_python_program(script_path, i):
     res = eval_state(proc, f"python {script_path}")
     return res, i
 
-def run_java_program(script_path, i):
+def run_java_program(script_path, i, javafx_path: str=None):
     folder = os.path.dirname(script_path)
     name = os.path.basename(script_path).split(".")[0]
+
+    if javafx_path is None:
+        javafx_path = "../../../../../../../javafx-sdk-11/lib"
+
     proc = subprocess.Popen(
-        f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; cd {folder} &&  {os.path.join(get_java_bin_path(), 'javac')} --module-path /home/hd/hd_hd/hd_tf268/code-gen/javafx-sdk-11/lib --add-modules javafx.base {name}.java && {os.path.join(get_java_bin_path(), 'java')} --module-path /home/hd/hd_hd/hd_tf268/code-gen/javafx-sdk-11/lib --add-modules javafx.base {name}",
+        f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; cd {folder} &&  {os.path.join(get_java_bin_path(), 'javac')} --module-path {javafx_path} --add-modules javafx.base {name}.java && {os.path.join(get_java_bin_path(), 'java')} --module-path {javafx_path} --add-modules javafx.base {name}",
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         shell=True,
@@ -173,7 +177,8 @@ def submit_functions(
     script_folder,
     roberta_mode=False,
     correct_functions=False,
-    replaced_indices=[]
+    replaced_constrained=False,
+    replaced_knnmt=False,
 ):
     lang_processor = LangProcessor.processors[lang2](root_folder=TREE_SITTER_ROOT)
     results_list = []
@@ -226,13 +231,13 @@ def submit_functions(
                 logger.debug(f"Fixed function through rule based fixes ({try_id}, {i}):\n{original_f}\n{f_fill}\n{ref}")
                 return results_list, i, 1, False, False
 
-            if try_id in replaced_indices:
-                logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
-                return results_list, i, 0, False, True
-
-            if try_id > 0:
+            if replaced_constrained:
                 logger.debug(f"Fixed function through constrained beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
                 return results_list, i, 0, True, False
+
+            if replaced_knnmt:
+                logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
+                return results_list, i, 0, False, True
                 
             return results_list, i, 0, False, False
 
@@ -247,13 +252,13 @@ def submit_functions(
                 logger.debug(f"Fixed function through rule based fixes ({try_id}, {i}):\n{original_f}\n{f_fill}\n{ref}")
                 return results_list, i, 1, False, False
 
-            if try_id in replaced_indices:
-                logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
-                return results_list, i, 0, False, True
-
-            if try_id > 0:
+            if replaced_constrained:
                 logger.debug(f"Fixed function through constrained beam search ({try_id}, {i}):\n{f_fill}\n{ref}")
                 return results_list, i, 0, True, False
+
+            if replaced_knnmt:
+                logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
+                return results_list, i, 0, False, True
 
             return results_list, i, 0, False, False
 
@@ -317,27 +322,47 @@ def eval_function_output(
 
     # For each function in list
     for f, knnmt_f, i, r in zip(functions, knnmt_functions, ids, refs):
-        replaced_indices = []
-        has_replaced = False
+        replaced_constrained = False
+        replaced_knnmt = False
+        already_compiles = False
         f = list(f)
 
-        # For each beam in tuple
-        for index, function in enumerate(f):
-            if constrained and not has_compile_errors(function, tgt_language=lang2):
-                f = f[:index + 1]
-                has_replaced = True
-                break
+        already_compiles = not has_compile_errors(f[0], tgt_language=lang2)
 
-            if knnmt_f is not None and has_compile_errors(function, tgt_language=lang2):
-                replaced_indices.append(index)
-                function = knnmt_f[index]
-                f[index] = function
+        if constrained and not already_compiles:
+            # For each beam in tuple
+            for index in range(1, len(f)):
+                if not has_compile_errors(f[index], tgt_language=lang2):
+                    f = [f[index]]
+                    replaced_constrained = True
+                    break
 
-        if not has_replaced:
-            f = f[0]
+        if knnmt_f is not None and not already_compiles and not replaced_constrained:
+            # For each beam in tuple
+            for knnmt_function in knnmt_f:
+                if not constrained or not has_compile_errors(knnmt_function, tgt_language=lang2):
+                    f = [knnmt_function]
+                    replaced_knnmt = True
+                    break
+
+        # if (constrained or knnmt_f is not None) and has_compile_errors(f[0], tgt_language=lang2):
+        #     # For each beam in tuple
+        #     for index, function in enumerate(f):
+        #         if constrained and not (has_compile_errors(function, tgt_language=lang2) if index > 0 else True):
+        #             f = [function]
+        #             replaced_constrained = True
+        #             break
+
+        #         if knnmt_f is not None and (not constrained or not has_compile_errors(knnmt_f[index], tgt_language=lang2)):
+        #             f = [knnmt_f[index]]
+        #             replaced_knnmt = True
+        #             break
+
+        if not replaced_constrained and not replaced_knnmt:
+            f = [f[0]]
 
         f = tuple(f)
-                    
+
         if evosuite_functions:
             jobs.append(
                 executor.submit(
@@ -362,7 +387,8 @@ def eval_function_output(
                     script_folder,
                     roberta_mode,
                     correct_functions,
-                    replaced_indices
+                    replaced_constrained,
+                    replaced_knnmt
                 )
             )
 

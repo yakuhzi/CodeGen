@@ -83,7 +83,7 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--knnmt_dir", type=str, default=False, help="Path to the KNNMT directory containing the datastore and faiss index",
+        "--knnmt_dir", type=str, default=None, help="Path to the KNNMT directory containing the datastore and faiss index",
     )
 
     parser.add_argument(
@@ -224,6 +224,7 @@ class Translator:
                 return_weights=False,
                 return_features=True,
                 targets=targets,
+                use_knn_store=False,
                 predict_single_token=predict_single_token,
             )
 

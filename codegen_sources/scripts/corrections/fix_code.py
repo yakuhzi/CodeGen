@@ -19,7 +19,7 @@ def fix_code(f_fill: str, lang: str, errors: str) -> str:
     code = bytes(f_fill, "utf8")
 
     parser = Parser()
-    parser.set_language(Language('codegen_sources/scripts/parsing/build/library.so', lang))
+    parser.set_language(Language('codegen_sources/scripts/corrections/build/library.so', lang))
 
     tree = parser.parse(code)
     cursor = tree.walk()
