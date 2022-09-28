@@ -97,12 +97,9 @@ def run_python_program(script_path, i):
     res = eval_state(proc, f"python {script_path}")
     return res, i
 
-def run_java_program(script_path, i, javafx_path: str=None):
+def run_java_program(script_path, i, javafx_path: str):
     folder = os.path.dirname(script_path)
     name = os.path.basename(script_path).split(".")[0]
-
-    if javafx_path is None:
-        javafx_path = "../../../../../../../javafx-sdk-11/lib"
 
     proc = subprocess.Popen(
         f"{limit_virtual_memory(MAX_VIRTUAL_MEMORY)}; cd {folder} &&  {os.path.join(get_java_bin_path(), 'javac')} --module-path {javafx_path} --add-modules javafx.base {name}.java && {os.path.join(get_java_bin_path(), 'java')} --module-path {javafx_path} --add-modules javafx.base {name}",
@@ -211,11 +208,12 @@ def submit_functions(
             script_model = f"import numpy as np \nimport math\nfrom math import *\nimport collections\nfrom collections import *\nimport heapq\nimport itertools\nimport random\nimport sys\n\n{script_model}"
 
         script_path = f"{outfolder}/{i}.{EXT[lang2]}"
+        javafx_path = os.path.abspath("javafx-sdk-11/lib")
 
         if correct_functions:
             script = script_model.replace(TOFILL[lang2], f_fill)
             open(script_path, "w", encoding="utf-8").write(script)
-            result, _ = run_pg(script_path, i)
+            result, _ = run_pg(script_path, i, javafx_path)
             
             original_success = result[0] == "success"
             os.remove(script_path)
@@ -243,7 +241,7 @@ def submit_functions(
 
         script = script_model.replace(TOFILL[lang2], f_fill)
         open(script_path, "w", encoding="utf-8").write(script)
-        result, _ = run_pg(script_path, i)
+        result, _ = run_pg(script_path, i, javafx_path)
 
         if result[0] == "success":
             results_list.append(result)

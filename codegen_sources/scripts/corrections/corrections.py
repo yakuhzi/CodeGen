@@ -30,7 +30,8 @@ def run_program(script_path: str):
     if TGT_LANGUAGE == "cpp":
         return run_cpp_program(script_path, 0)
     elif TGT_LANGUAGE == "java":
-        return run_java_program(script_path, 0, "../../../../javafx-sdk-11/lib")
+        javafx_path = os.path.abspath("javafx-sdk-11/lib")
+        return run_java_program(script_path, 0, javafx_path)
     elif TGT_LANGUAGE == "python":
         return run_python_program(script_path, 0)
 

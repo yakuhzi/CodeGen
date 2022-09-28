@@ -4,7 +4,7 @@
 #SBATCH --mem=80GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=adaptive_knnmt_mixed_eval_cpp_python
-#SBATCH --output=adaptive_knnmt_mixed_cpp_java_%j.log
+#SBATCH --output=adaptive_knnmt_mixed_cpp_python_%j.log
 
 MODEL_PATH='models/Online_ST_CPP_Python.pth'
 DUMP_PATH='dump/adaptive_knnmt/eval_mixed/cpp_python'

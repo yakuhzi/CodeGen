@@ -5,10 +5,14 @@ import math
 import torch.nn.functional as F
 
 from typing import List, Optional
-from torch_scatter import scatter
 from collections import OrderedDict
 from torch import nn
 from codegen_sources.scripts.knnmt.knnmt import KNNMT
+
+try:
+    from torch_scatter import scatter
+except ImportError:
+    pass
 
 
 class MetaK(pl.LightningModule):
