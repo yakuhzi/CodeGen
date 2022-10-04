@@ -1063,7 +1063,7 @@ class TransformerModel(nn.Module):
         tgt_language = self.id2lang[tgt_lang_id].split("_")[0]
 
         # Get targets and distances from kNN-MT datastore
-        knn_targets, knn_distances = self.knnmt.get_k_nearest_neighbors(
+        knn_targets, knn_distances, _ = self.knnmt.get_k_nearest_neighbors(
             features,
             language_pair=f"{src_language}_{tgt_language}",
             k=knnmt_params["k"]

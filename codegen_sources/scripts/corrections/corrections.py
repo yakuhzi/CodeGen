@@ -118,8 +118,8 @@ with torch.no_grad():
                 original_script_model = f"import numpy as np \nimport math\nfrom math import *\nimport collections\nfrom collections import *\nimport heapq\nimport itertools\nimport random\nimport sys\n\n{original_script_model}"
 
             f_fill = output = translator.translate(
-                function, 
-                lang1=SRC_LANGUAGE, 
+                function,
+                lang1=SRC_LANGUAGE,
                 lang2=TGT_LANGUAGE,
                 beam_size=1
             )[0].replace("@ @", "")

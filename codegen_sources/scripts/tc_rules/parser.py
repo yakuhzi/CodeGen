@@ -53,33 +53,33 @@ class RuleSet:
     """class for the database maintaining the translations rules"""
 
     def __init__(self):
-        if not os.path.isfile("codegen_sources/scripts/tc-rules/rules.json"):
+        if not os.path.isfile("codegen_sources/scripts/tc_rules/rules.json"):
             self.rules = {}
         else:
-            with open("codegen_sources/scripts/tc-rules/rules.json", encoding="utf8") as file:
+            with open("codegen_sources/scripts/tc_rules/rules.json", encoding="utf8") as file:
                 self.rules = json.load(file)
                 print(f"Loading {len(self.rules)} rules ... Done ...")
 
-        with open("codegen_sources/scripts/tc-rules/keywords.json", encoding="utf8") as file:
+        with open("codegen_sources/scripts/tc_rules/keywords.json", encoding="utf8") as file:
             self.keywords = json.load(file)
 
-        if not os.path.isfile("codegen_sources/scripts/tc-rules/tree-keywords.txt"):
+        if not os.path.isfile("codegen_sources/scripts/tc_rules/tree-keywords.txt"):
             self.tree_keywords = []
         else:
-            with open("codegen_sources/scripts/tc-rules/tree-keywords.txt", encoding="utf8") as file:
+            with open("codegen_sources/scripts/tc_rules/tree-keywords.txt", encoding="utf8") as file:
                 self.tree_keywords = file.read().split(",")
                 print(f"Loading {len(self.tree_keywords)} keywords for parse tree ... Done ...")
 
     def save_rules(self):
         """store derived rules in json format"""
-        with open("codegen_sources/scripts/tc-rules/rules.json", "a+", encoding="utf8") as file:
+        with open("codegen_sources/scripts/tc_rules/rules.json", "a+", encoding="utf8") as file:
             file.truncate(0)
             file.seek(0)
             json.dump(self.rules, file, indent=4)
 
     def save_keywords(self):
         """store keywords from tree-sitter"""
-        with open("codegen_sources/scripts/tc-rules/tree-keywords.txt", "a+", encoding="utf8") as file:
+        with open("codegen_sources/scripts/tc_rules/tree-keywords.txt", "a+", encoding="utf8") as file:
             file.truncate(0)
             file.seek(0)
             length = len(self.tree_keywords) - 1

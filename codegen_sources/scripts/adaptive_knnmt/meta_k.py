@@ -50,7 +50,7 @@ class MetaK(pl.LightningModule):
 
     def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor. torch.Tensor]:
         # Get input features
-        knns, distances = self.knnmt.get_k_nearest_neighbors(features, self.hparams.language_pair, k=self.hparams.max_k)
+        knns, distances, _ = self.knnmt.get_k_nearest_neighbors(features, self.hparams.language_pair, k=self.hparams.max_k)
         distinct_neighbors = [[len(set(indices[:i])) for i in range(1, self.hparams.max_k + 1)] for indices in knns]
 
         # Convert features to tensors and put to GPU

@@ -8,7 +8,7 @@
 
 MODEL_PATH='models/Online_ST_Python_Java.pth'
 DUMP_PATH='dump/corrections/python_java'
-DATASET_PATH='dataset/transcoder/test'
+DATASET_PATH='data/test_dataset'
 
 python -m codegen_sources.model.train \
     --dump_path "$DUMP_PATH" \
