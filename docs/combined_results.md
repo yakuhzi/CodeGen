@@ -1,8 +1,26 @@
-# Combined results
+# Combined Results
+This page documents how the results for the experiments combining multiple techniques can be obtained.
 
 ## Experiments
-Run evaluation for a language pair:
+To run an experiment for a specific language pair, replace the respective placeholders and run the command.
 
+
+### All Techniques Combined
 ```sh
-codegen_sources/scripts/combined/eval/eval_{src_language}_{tgt_language}.sh
+codegen_sources/scripts/combined/eval/all/eval_{src_language}_{tgt_language}.sh
+```
+
+### Constrained Beam Search + Adaptive kNN-MT
+```sh
+codegen_sources/scripts/combined/eval/constrained_knnmt/eval_{src_language}_{tgt_language}.sh
+```
+
+### Rule-Based Corrections + Constrained Beam Search
+```sh
+codegen_sources/scripts/combined/eval/corrections_constrained/eval_{src_language}_{tgt_language}.sh
+```
+
+### Rule-Based Corrections + Adaptive kNN-MT
+```sh
+codegen_sources/scripts/combined/eval/corrections_knnmt/eval_{src_language}_{tgt_language}.sh
 ```

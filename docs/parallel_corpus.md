@@ -47,7 +47,7 @@ WHERE
     AND f.path like '%.java'
 ```
 
-Note that this will only include the repositories with `mit` or `aache-2.0` license. Contrary Rozière et al. used `mit`, `apache-2.0`, `gpl-2.0`, `gpl-3.0`, `bsd-2-clause` and `bsd-3-clause` licenses.
+Note that this will only include the repositories with `mit` or `apache-2.0` license as used in the master's thesis. Contrary Rozière et al. used `mit`, `apache-2.0`, `gpl-2.0`, `gpl-3.0`, `bsd-2-clause` and `bsd-3-clause` licenses.
 
 If you want to obtain the files for C++ and Python, just exchange `%.java` with `%.cpp` or `%.py` respectively.
 
