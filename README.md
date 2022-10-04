@@ -10,8 +10,8 @@ Almost all code and scripts that were added during the master thesis can be foun
 Run the following command to clone the repository
 
 ```sh
-git clone https://github.com/yakuhzi/code-gen.git
-cd code-gen
+git clone https://github.com/yakuhzi/c2c-translation.git
+cd c2c-translation
 ```
 
 ### Install dependencies
@@ -25,6 +25,7 @@ The script will also download the pretrained TransCoder and TransCoder-ST models
 
 ## Experiments & Results
 
+- [TransCoder-ST Baseline](docs/baseline.md)
 - [Rule-Based Error Corrections](docs/rule_based_corrections.md)
 - [Constrained Beam Search](docs/constrained_beam_search.md)
 - [Nearest Neighbor Machine Translation](docs/nearest_neighbor_mt.md)
