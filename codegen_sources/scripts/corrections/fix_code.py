@@ -16,14 +16,18 @@ def fix_code(f_fill: str, lang: str, errors: str) -> str:
     logger.debug(f"ORIGINAL\n{f_fill}")
     logger.debug("=" * 100)
 
+    # Convert function string to bytes
     code = bytes(f_fill, "utf8")
 
+    # Define AST parser
     parser = Parser()
     parser.set_language(Language('codegen_sources/scripts/corrections/build/library.so', lang))
 
+    # Obtain AST tree and cursor
     tree = parser.parse(code)
     cursor = tree.walk()
 
+    # Fix code depending on the target language
     if lang == "cpp":
         f_fill = fix_cpp_code(f_fill, cursor, code, errors)
     elif lang == "java":
@@ -78,9 +82,9 @@ def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str
     # Fix missing memset
     if "memset" not in f_fill:
         f_fill = re.sub(
-            "(^( *)((int|long|double) )+(\w+) (\[ [\w\-+ ]* \] )+;)", 
-            r"\1\n\2memset ( \5, 0, sizeof ( \5 ) );", 
-            f_fill, 
+            "(^( *)((int|long|double) )+(\w+) (\[ [\w\-+ ]* \] )+;)",
+            r"\1\n\2memset ( \5, 0, sizeof ( \5 ) );",
+            f_fill,
             flags=re.MULTILINE
         )
 
@@ -92,7 +96,7 @@ def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str
 
     for node in traverse_tree(cursor):
         snippet = code[node.start_byte: node.end_byte].decode("utf8")
-        
+
         # Fix additional boolean condition
         match = re.match("(\( (.*) ((>|<|=)+) (\+) \)) && \( (.*) ((>|<|=)+) (\w+) \)", snippet)
 
@@ -106,7 +110,7 @@ def fix_cpp_code(f_fill: str, cursor: TreeCursor, code: bytes, errors: Tuple[str
                     or first_operator == ">" and second_operator  == "<=" \
                     or first_operator == ">=" and second_operator in ["<", "<="]:
                     f_fill = f_fill.replace(snippet, match.group(1))
-                
+
     return f_fill
 
 

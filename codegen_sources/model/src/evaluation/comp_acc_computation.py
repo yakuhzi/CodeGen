@@ -211,21 +211,23 @@ def submit_functions(
         javafx_path = os.path.abspath("javafx-sdk-11/lib")
 
         if correct_functions:
-            script = script_model.replace(TOFILL[lang2], f_fill)
+            # Get original results without the rule-based corrections applied
+            original_f = f_fill
+            script = script_model.replace(TOFILL[lang2], original_f)
             open(script_path, "w", encoding="utf-8").write(script)
 
             if lang2 == "java":
                 result, _ = run_pg(script_path, i, javafx_path)
             else:
                 result, _ = run_pg(script_path, i)
-            
+
             original_success = result[0] == "success"
             os.remove(script_path)
 
-            original_f = f_fill
+            # Get corrected function
             errors = get_errors(f_fill, tgt_language=lang2)
             f_fill = fix_code(f_fill, lang2, errors)
-        
+
         if f_fill == ref:
             results_list.append(("success", "identical to gold"))
 
@@ -240,7 +242,7 @@ def submit_functions(
             if replaced_knnmt:
                 logger.debug(f"Fixed function through KNNMT ({try_id}, {i}):\n{f_fill}\n{ref}")
                 return results_list, i, 0, False, True
-                
+
             return results_list, i, 0, False, False
 
         script = script_model.replace(TOFILL[lang2], f_fill)
@@ -331,27 +333,32 @@ def eval_function_output(
     for f, knnmt_f, i, r in zip(functions, knnmt_functions, ids, refs):
         replaced_constrained = False
         replaced_knnmt = False
-        already_compiles = False
         f = list(f)
 
         already_compiles = not has_compile_errors(f[0], tgt_language=lang2)
 
+        # Constrained Beam Search
         if constrained and not already_compiles:
             # For each beam in tuple
             for index in range(1, len(f)):
+                # Use first function in the beam that compiles successfully
                 if not has_compile_errors(f[index], tgt_language=lang2):
                     f = [f[index]]
                     replaced_constrained = True
                     break
 
+        # Nearest Neighbor Machine Translation
         if knnmt_f is not None and (not knnmt_restricted or not already_compiles) and not replaced_constrained:
             # For each beam in tuple
             for knnmt_function in knnmt_f:
+                # Replace beam with kNN-MT translation
                 if not constrained or not has_compile_errors(knnmt_function, tgt_language=lang2):
                     f = [knnmt_function]
                     replaced_knnmt = True
                     break
 
+        # Alternative: Instead searching all functions to find the first one that successfully compiles,
+        # iteratively search both in the original translations and in the kNN-MT translations.
         # if (constrained or knnmt_f is not None) and has_compile_errors(f[0], tgt_language=lang2):
         #     # For each beam in tuple
         #     for index, function in enumerate(f):
@@ -365,6 +372,7 @@ def eval_function_output(
         #             replaced_knnmt = True
         #             break
 
+        # Use first function in the beam if not replaced by constrained beam search or kNN-MT
         if not replaced_constrained and not replaced_knnmt:
             f = [f[0]]
 
@@ -430,6 +438,7 @@ def eval_function_output(
                 results_stats.get(results_list[0][0], 0) + 1
             )
 
+        # Count statistics for examined improvements
         results_stats["fixed_rules"] += 1 if rules_result == 1 else 0
         results_stats["corrupted_rules"] += 1 if rules_result == -1 else 0
         results_stats["fixed_constrained"] += 1 if fixed_constrained else 0

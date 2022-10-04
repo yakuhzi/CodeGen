@@ -602,7 +602,7 @@ class TransformerModel(nn.Module):
         predict_single_token=False,
         use_knn_store=False,
         knnmt_params=None,
-        meta_k: Optional[MetaK]=None
+        meta_k: Optional[MetaK] = None
     ):
         """
         Decode a sentence given initial start.
@@ -733,13 +733,14 @@ class TransformerModel(nn.Module):
             if targets is not None and not (predict_single_token and cur_len == len(targets)):
                 next_words = targets[cur_len]
             elif sample_temperature is None:
+                # Predict next targets using kNN-MT
                 if use_knn_store and knnmt_params is not None:
                     next_words = self.predict_next_words(
-                        tensor, 
-                        scores, 
+                        tensor,
+                        scores,
                         knnmt_params,
-                        src_lang_id, 
-                        tgt_lang_id, 
+                        src_lang_id,
+                        tgt_lang_id,
                         meta_k=meta_k
                     )
                 else:
@@ -907,12 +908,12 @@ class TransformerModel(nn.Module):
 
             if use_knn_store and knnmt_params is not None:
                 next_scores, next_words = self.predict_next_words(
-                    tensor, 
-                    scores, 
-                    knnmt_params, 
-                    src_lang_id, 
-                    tgt_lang_id, 
-                    beam_size, 
+                    tensor,
+                    scores,
+                    knnmt_params,
+                    src_lang_id,
+                    tgt_lang_id,
+                    beam_size,
                     meta_k
                 )
             else:
@@ -1031,24 +1032,28 @@ class TransformerModel(nn.Module):
         return decoded, tgt_len, sorted([h[0] for h in hypotheses.hyp], reverse=True)
 
     def predict_next_words(
-        self, 
+        self,
         features,
-        scores, 
+        scores,
         knnmt_params,
-        src_lang_id: int, 
-        tgt_lang_id: int, 
-        beam_size: int=1, 
-        meta_k: Optional[MetaK]=None
+        src_lang_id: int,
+        tgt_lang_id: int,
+        beam_size: int = 1,
+        meta_k: Optional[MetaK] = None
     ):
         batch_size = int(features.size(0) / beam_size)
 
+        # If meta_K is provided -> Adaptive kNN-MT
         if meta_k is not None:
+            # Get Meta-k predictions combined with TransCoder predictions
             knn_tgt_prob = meta_k.combined_prediction(features, scores).cuda()
-            
+
             if beam_size == 1:
+                # Get best scoring target
                 next_words = torch.argmax(knn_tgt_prob, dim=1)
                 return next_words
             else:
+                # Get best scoring targets
                 _knn_tgt_prob = knn_tgt_prob.view(batch_size, beam_size * self.n_words)
                 return torch.topk(_knn_tgt_prob, 2 * beam_size, dim=1, largest=True, sorted=True)
 
@@ -1057,19 +1062,23 @@ class TransformerModel(nn.Module):
         src_language = self.id2lang[src_lang_id].split("_")[0]
         tgt_language = self.id2lang[tgt_lang_id].split("_")[0]
 
+        # Get targets and distances from kNN-MT datastore
         knn_targets, knn_distances = self.knnmt.get_k_nearest_neighbors(
             features,
-            language_pair=f"{src_language}_{tgt_language}", 
+            language_pair=f"{src_language}_{tgt_language}",
             k=knnmt_params["k"]
         )
 
+        # Get top k predictions from TransCoder
         tc_topk = torch.topk(scores, knnmt_params["k"])
         tc_targets = tc_topk[1]
         tc_scores = tc_topk[0]
 
+        # Normalize kNN-MT distances and TransCoder scores
         normalized_knn_distances = F.softmax(torch.tensor(knn_distances / knnmt_params["temperature"] * -1), dim=-1)
         normalized_tc_scores = F.softmax(tc_scores.float() / knnmt_params["tc_temperature"], dim=-1)
 
+        # Alternative: weight kNN-MT predictions based on distances and distinct neighbors (similar to adaptive kNN-MT)
         # limit = 5000
         # clipped_distances = (limit - np.clip(knn_distances, 0, limit)) / limit
         # normalized_knn_distances = normalized_knn_distances * clipped_distances
@@ -1088,41 +1097,53 @@ class TransformerModel(nn.Module):
             beam_tc_targets = []
             beam_tc_scores = []
 
+            # Adds beam offsets to kNN-MT and TransCoder targets
+            # This is necessary to support beam sizes > 1 since the framework expects it in this format
             for i in range(beam_size):
                 index = batch_index * beam_size + i
                 offset = self.n_words * i
 
+                # Add beam offset to kNN-MT targets
                 beam_knn_targets += [target + offset for target in knn_targets[index]]
                 beam_knn_distances += normalized_knn_distances[index]
 
+                # Add beam offset to TransCoder targets
                 beam_tc_targets += [target + offset for target in tc_targets[index]]
                 beam_tc_scores += normalized_tc_scores[index]
 
+            # Aggregate kNN-MT predictions
             for target, distance in zip(beam_knn_targets, beam_knn_distances):
                 if target_scores.get(target) is None:
                     target_scores[target] = distance.item() * knn_lambda[batch_index]
                 else:
                     target_scores[target] += distance.item() * knn_lambda[batch_index]
 
+            # Aggregate TransCoder predictions
             for target, distance in zip(beam_tc_targets, beam_tc_scores):
                 if target_scores.get(target.item()) is None:
                     target_scores[target.item()] = distance.item() * (1 - knn_lambda[batch_index])
                 else:
                     target_scores[target.item()] += distance.item() * (1 - knn_lambda[batch_index])
 
+            # Retrieve best scoring targets
             best_targets = sorted(target_scores, key=target_scores.get, reverse=True)[:beam_size * 2]
 
             if beam_size == 1:
+                # Append best target
                 next_words.append(best_targets[0])
             else:
+                # Append best targets with their scores
                 best_scores = [target_scores[target] for target in best_targets]
                 next_scores.append(best_scores)
                 next_words.append(best_targets)
-            
+
         if beam_size == 1:
+            # Get best scoring targets
             return torch.tensor(next_words).cuda()
         else:
+            # Get best scoring targets with their corresponding scores
             return torch.tensor(next_scores).cuda(), torch.tensor(next_words).cuda()
+
 
 class BeamHypotheses(object):
     def __init__(self, n_hyp, max_len, length_penalty, early_stopping):

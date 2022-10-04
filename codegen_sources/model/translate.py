@@ -151,7 +151,7 @@ class Translator:
         else:
             self.bpe_model = FastBPEMode(codes=os.path.abspath(BPE_path), vocab_path=None, global_model=global_model)
 
-    def get_token(self, id): 
+    def get_token(self, id):
         return self.dico[id]
 
     def tokenize(self, input: str, src_language):
@@ -162,17 +162,18 @@ class Translator:
         return " ".join(tokens)
 
     def get_features(
-        self, 
-        input_code: str, 
-        target_code: str, 
-        src_language: str, 
-        tgt_language: str, 
-        predict_single_token: bool=False,
-        tokenized: bool=False
+        self,
+        input_code: str,
+        target_code: str,
+        src_language: str,
+        tgt_language: str,
+        predict_single_token: bool = False,
+        tokenized: bool = False
     ):
         lang1 = src_language + "_sa"
         lang2 = tgt_language + "_sa"
 
+        # Get source and target language tokenizer
         src_lang_processor = LangProcessor.processors[src_language](root_folder=TREE_SITTER_ROOT)
         tgt_lang_processor = LangProcessor.processors[tgt_language](root_folder=TREE_SITTER_ROOT)
         src_tokenizer = src_lang_processor.tokenize_code
@@ -224,7 +225,7 @@ class Translator:
             len2 = torch.LongTensor(1).fill_(len2)
             x2 = torch.LongTensor([self.dico.index(w) for w in output_code.split()])[:, None]
             targets, len2 = to_cuda(x2, len2)
-            
+
             # Decode
             x2, len2, features, scores = self.decoder.generate(
                 enc1,
@@ -324,11 +325,11 @@ class Translator:
 
             # Encode
             enc_res = self.encoder(
-                "fwd", 
-                x=x1, 
-                lengths=len1, 
-                langs=langs1, 
-                causal=False, 
+                "fwd",
+                x=x1,
+                lengths=len1,
+                langs=langs1,
+                causal=False,
                 return_weights=return_weights
             )
 
@@ -412,6 +413,7 @@ class Translator:
             for t in tok:
                 results.append(detokenizer(t))
 
+            # Return attention weights for further analysis
             if return_weights:
                 tgt_tokens = tgt_tokens + ["</s>"]
 
@@ -421,10 +423,12 @@ class Translator:
                 num_layers = len(decoder_weights[0])
                 num_tokens = len(decoder_weights)
 
+                # Append weights for each layer
                 for i in range(num_layers):
                     decoder_layer = []
                     cross_layer = []
 
+                    # Append padded weights for each token
                     for j in range(num_tokens):
                         padded_weights = F.pad(decoder_weights[j][i], (0, num_tokens - j - 1), "constant", 0)
                         decoder_layer.append(padded_weights)
@@ -446,6 +450,7 @@ class Translator:
                 )
             else:
                 return results
+
 
 if __name__ == "__main__":
     # generate parser / parse parameters
@@ -478,10 +483,10 @@ if __name__ == "__main__":
 
     # Initialize translator
     translator = Translator(
-        params.model_path, 
-        params.BPE_path, 
-        knnmt_dir=params.knnmt_dir, 
-        knnmt_params=knnmt_params, 
+        params.model_path,
+        params.BPE_path,
+        knnmt_dir=params.knnmt_dir,
+        knnmt_params=knnmt_params,
         meta_k_checkpoint=params.meta_k_checkpoint
     )
 
