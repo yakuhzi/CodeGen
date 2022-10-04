@@ -213,7 +213,11 @@ def submit_functions(
         if correct_functions:
             script = script_model.replace(TOFILL[lang2], f_fill)
             open(script_path, "w", encoding="utf-8").write(script)
-            result, _ = run_pg(script_path, i, javafx_path)
+
+            if lang2 == "java":
+                result, _ = run_pg(script_path, i, javafx_path)
+            else:
+                result, _ = run_pg(script_path, i)
             
             original_success = result[0] == "success"
             os.remove(script_path)
@@ -241,7 +245,11 @@ def submit_functions(
 
         script = script_model.replace(TOFILL[lang2], f_fill)
         open(script_path, "w", encoding="utf-8").write(script)
-        result, _ = run_pg(script_path, i, javafx_path)
+
+        if lang2 == "java":
+            result, _ = run_pg(script_path, i, javafx_path)
+        else:
+            result, _ = run_pg(script_path, i)
 
         if result[0] == "success":
             results_list.append(result)
@@ -292,7 +300,8 @@ def eval_function_output(
     evosuite_tests=None,
     correct_functions=False,
     constrained=False,
-    knnmt_paths = None
+    knnmt_paths=None,
+    knnmt_restricted=True
 ):
     # List of tuples of functions. List elements = function id, tuple elements = beam.
     functions = list(zip(*[read_file_lines(path) for path in hyp_paths]))
@@ -335,7 +344,7 @@ def eval_function_output(
                     replaced_constrained = True
                     break
 
-        if knnmt_f is not None and not already_compiles and not replaced_constrained:
+        if knnmt_f is not None and (not knnmt_restricted or not already_compiles) and not replaced_constrained:
             # For each beam in tuple
             for knnmt_function in knnmt_f:
                 if not constrained or not has_compile_errors(knnmt_function, tgt_language=lang2):

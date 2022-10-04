@@ -601,6 +601,7 @@ class TransformerModel(nn.Module):
         targets=None,
         predict_single_token=False,
         use_knn_store=False,
+        knnmt_params=None,
         meta_k: Optional[MetaK]=None
     ):
         """
@@ -732,8 +733,15 @@ class TransformerModel(nn.Module):
             if targets is not None and not (predict_single_token and cur_len == len(targets)):
                 next_words = targets[cur_len]
             elif sample_temperature is None:
-                if use_knn_store:
-                    next_words = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id, meta_k=meta_k)
+                if use_knn_store and knnmt_params is not None:
+                    next_words = self.predict_next_words(
+                        tensor, 
+                        scores, 
+                        knnmt_params,
+                        src_lang_id, 
+                        tgt_lang_id, 
+                        meta_k=meta_k
+                    )
                 else:
                     next_words = torch.topk(scores, 1)[1].squeeze(1)
             else:
@@ -786,6 +794,7 @@ class TransformerModel(nn.Module):
         early_stopping,
         max_len=200,
         use_knn_store=False,
+        knnmt_params=None,
         meta_k=None
     ):
         """
@@ -896,8 +905,16 @@ class TransformerModel(nn.Module):
             # (bs, beam_size * n_words)
             _scores = scores.view(bs, beam_size * n_words)
 
-            if use_knn_store:
-                next_scores, next_words = self.predict_next_words(tensor, scores, src_lang_id, tgt_lang_id, beam_size, meta_k)
+            if use_knn_store and knnmt_params is not None:
+                next_scores, next_words = self.predict_next_words(
+                    tensor, 
+                    scores, 
+                    knnmt_params, 
+                    src_lang_id, 
+                    tgt_lang_id, 
+                    beam_size, 
+                    meta_k
+                )
             else:
                 next_scores, next_words = torch.topk(_scores, 2 * beam_size, dim=1, largest=True, sorted=True)
 
@@ -1017,6 +1034,7 @@ class TransformerModel(nn.Module):
         self, 
         features,
         scores, 
+        knnmt_params,
         src_lang_id: int, 
         tgt_lang_id: int, 
         beam_size: int=1, 
@@ -1034,10 +1052,7 @@ class TransformerModel(nn.Module):
                 _knn_tgt_prob = knn_tgt_prob.view(batch_size, beam_size * self.n_words)
                 return torch.topk(_knn_tgt_prob, 2 * beam_size, dim=1, largest=True, sorted=True)
 
-        k = 8 # * beam_size
-        knn_temperature = 10
-        tc_temperature = 5
-        knn_lambda = [0.5 for i in range(batch_size)]
+        knn_lambda = [knnmt_params["lambda"] for i in range(batch_size)]
 
         src_language = self.id2lang[src_lang_id].split("_")[0]
         tgt_language = self.id2lang[tgt_lang_id].split("_")[0]
@@ -1045,15 +1060,15 @@ class TransformerModel(nn.Module):
         knn_targets, knn_distances = self.knnmt.get_k_nearest_neighbors(
             features,
             language_pair=f"{src_language}_{tgt_language}", 
-            k=k
+            k=knnmt_params["k"]
         )
 
-        tc_topk = torch.topk(scores, k)
+        tc_topk = torch.topk(scores, knnmt_params["k"])
         tc_targets = tc_topk[1]
         tc_scores = tc_topk[0]
 
-        normalized_knn_distances = F.softmax(torch.tensor(knn_distances / knn_temperature * -1), dim=-1)
-        normalized_tc_scores = F.softmax(tc_scores.float() / tc_temperature, dim=-1) # TODO: Add temperature?
+        normalized_knn_distances = F.softmax(torch.tensor(knn_distances / knnmt_params["temperature"] * -1), dim=-1)
+        normalized_tc_scores = F.softmax(tc_scores.float() / knnmt_params["tc_temperature"], dim=-1)
 
         # limit = 5000
         # clipped_distances = (limit - np.clip(knn_distances, 0, limit)) / limit

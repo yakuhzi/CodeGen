@@ -687,6 +687,21 @@ def get_parser():
         "--knnmt_dir", type=str, default=None, help="Path to the KNNMT directory containing the datastore and faiss index"
     )
     parser.add_argument(
+        "--knnmt_temperature", type=int, default=10, help="Temperature applied to the softmax over the KNNMT predictions"
+    )
+    parser.add_argument(
+        "--knnmt_tc_temperature", type=int, default=5, help="Temperature applied to the softmax over the TC predictions when using KNNMT"
+    )
+    parser.add_argument(
+        "--knnmt_lambda", type=float, default=0.5, help="Interpolation hyperparameter for weighting the KNNMT and TC predictions"
+    )
+    parser.add_argument(
+        "--knnmt_k", type=int, default=8, help="Number of neighbors to retrieve from the KNNMT datastore"
+    )
+    parser.add_argument(
+        "--knnmt_restricted", type=bool_flag, default=True, help="If the KNNMT datastore should only be queried for functions that do not compile in the first place"
+    )
+    parser.add_argument(
         "--meta_k_checkpoint", type=str, default=None, help="Path to the MetaK checkpoint for adaptive KNN Machine Translation"
     )
 

@@ -85,7 +85,18 @@ def get_parser():
     parser.add_argument(
         "--knnmt_dir", type=str, default=None, help="Path to the KNNMT directory containing the datastore and faiss index",
     )
-
+    parser.add_argument(
+        "--knnmt_temperature", type=int, default=10, help="Temperature applied to the softmax over the KNNMT predictions"
+    )
+    parser.add_argument(
+        "--knnmt_tc_temperature", type=int, default=5, help="Temperature applied to the softmax over the TC predictions when using KNNMT"
+    )
+    parser.add_argument(
+        "--knnmt_lambda", type=float, default=0.5, help="Interpolation hyperparameter for weighting the KNNMT and TC predictions"
+    )
+    parser.add_argument(
+        "--knnmt_k", type=int, default=8, help="Number of neighbors to retrieve from the KNNMT datastore"
+    )
     parser.add_argument(
         "--meta_k_checkpoint", type=str, default=None, help="Path to the MetaK checkpoint for adaptive KNN Machine Translation",
     )
@@ -94,7 +105,7 @@ def get_parser():
 
 
 class Translator:
-    def __init__(self, model_path, BPE_path, global_model: bool = False, knnmt_dir: Optional[str]=None, meta_k_checkpoint: Optional[str]=None):
+    def __init__(self, model_path, BPE_path, global_model: bool = False, knnmt_dir: Optional[str]=None, knnmt_params=None, meta_k_checkpoint: Optional[str]=None):
         # reload model
         reloaded = torch.load(model_path, map_location="cpu")
         # change params of the reloaded model so that it will
@@ -116,6 +127,7 @@ class Translator:
         assert self.reloaded_params.mask_index == self.dico.index(MASK_WORD)
 
         self.use_knn_store = knnmt_dir is not None
+        self.knnmt_params = knnmt_params
 
         if meta_k_checkpoint is not None:
             self.meta_k = MetaK.load_from_checkpoint(meta_k_checkpoint).cuda()
@@ -347,6 +359,7 @@ class Translator:
                         sample_temperature=sample_temperature,
                         return_weights=return_weights,
                         use_knn_store=self.use_knn_store,
+                        knnmt_params=self.knnmt_params,
                         meta_k=self.meta_k,
                     )
                 else:
@@ -359,6 +372,7 @@ class Translator:
                         sample_temperature=sample_temperature,
                         return_weights=return_weights,
                         use_knn_store=self.use_knn_store,
+                        knnmt_params=self.knnmt_params,
                         meta_k=self.meta_k,
                     )
             else:
@@ -372,6 +386,7 @@ class Translator:
                     length_penalty=length_penalty,
                     beam_size=beam_size,
                     use_knn_store=self.use_knn_store,
+                    knnmt_params=self.knnmt_params,
                     meta_k=self.meta_k,
                 )
 
@@ -454,8 +469,21 @@ if __name__ == "__main__":
         params.tgt_lang in SUPPORTED_LANGUAGES
     ), f"The target language should be in {SUPPORTED_LANGUAGES}."
 
+    knnmt_params = {
+        "k": params.knnmt_k,
+        "lambda": params.knnmt_lambda,
+        "temperature": params.knnmt_temperature,
+        "tc_temperature": params.knnmt_tc_temperature
+    }
+
     # Initialize translator
-    translator = Translator(params.model_path, params.BPE_path, knnmt_dir=params.knnmt_dir, meta_k_checkpoint=params.meta_k_checkpoint)
+    translator = Translator(
+        params.model_path, 
+        params.BPE_path, 
+        knnmt_dir=params.knnmt_dir, 
+        knnmt_params=knnmt_params, 
+        meta_k_checkpoint=params.meta_k_checkpoint
+    )
 
     # read input code from stdin
     src_sent = []

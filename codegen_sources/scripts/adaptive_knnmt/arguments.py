@@ -136,7 +136,7 @@ def parse_arguments() -> Namespace:
         dest="knnmt_dir",
         help="Path to the directory containing the KNN datastore and faiss index",
         type=str,
-        default="out/knnmt/mixed_half"
+        default="out/knnmt/validation_set_half"
     )
 
     parser.add_argument(

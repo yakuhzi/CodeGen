@@ -879,6 +879,13 @@ class EncDecEvaluator(Evaluator):
                 xe_loss += loss.item() * len(y)
                 n_valid += (word_scores.max(1)[1] == y).sum().item()
 
+                knnmt_params = {
+                    "k": params.knnmt_k,
+                    "lambda": params.knnmt_lambda,
+                    "temperature": params.knnmt_temperature,
+                    "tc_temperature": params.knnmt_tc_temperature
+                }
+
                 # generate translation - translate / convert to text
                 if (
                     eval_bleu or eval_computation or eval_subtoken_score
@@ -917,6 +924,7 @@ class EncDecEvaluator(Evaluator):
                                     ),
                                     sample_temperature=params.eval_temperature,
                                     use_knn_store=True,
+                                    knnmt_params=knnmt_params,
                                     meta_k=self.meta_k,
                                 )
                                 knnmt_generated = knnmt_generated.T.reshape(
@@ -931,7 +939,14 @@ class EncDecEvaluator(Evaluator):
                             )
                             if params.knnmt_dir is not None:
                                 knnmt_generated, knnmt_lengths = decoder.generate(
-                                    enc1, len1, lang1_id, lang2_id, max_len=len_v, use_knn_store=True, meta_k=self.meta_k
+                                    enc1, 
+                                    len1, 
+                                    lang1_id, 
+                                    lang2_id, 
+                                    max_len=len_v, 
+                                    use_knn_store=True, 
+                                    knnmt_params=knnmt_params, 
+                                    meta_k=self.meta_k
                                 )
                         # print(f'path 1: {generated.shape}')
 
@@ -960,6 +975,7 @@ class EncDecEvaluator(Evaluator):
                                 early_stopping=params.early_stopping,
                                 max_len=len_v,
                                 use_knn_store=True,
+                                knnmt_params=knnmt_params,
                                 meta_k=self.meta_k,
                             )
                         # print(f'path 2: {generated.shape}')
@@ -1043,7 +1059,8 @@ class EncDecEvaluator(Evaluator):
                     roberta_mode=params.roberta_mode,
                     correct_functions=params.correct_functions,
                     constrained=params.constrained,
-                    knnmt_paths=knnmt_paths
+                    knnmt_paths=knnmt_paths,
+                    knnmt_restricted=params.knnmt_restricted
                 )
 
             if (
@@ -1066,6 +1083,7 @@ class EncDecEvaluator(Evaluator):
                     evosuite_functions=True,
                     correct_functions=params.correct_functions,
                     constrained=params.constrained,
+                    knnmt_restricted=params.knnmt_restricted
                 )
             if eval_subtoken_score and data_set in datasets_for_bleu:
                 subtoken_level_scores = run_subtoken_score(ref_path, hyp_paths)
@@ -1197,7 +1215,8 @@ class EncDecEvaluator(Evaluator):
         evosuite_functions=False,
         correct_functions=False,
         constrained=False,
-        knnmt_paths=None
+        knnmt_paths=None,
+        knnmt_restricted=True
     ):
         assert self.evosuite_tests_dico is not None or not evosuite_functions
         func_run_stats, func_run_out = eval_function_output(
@@ -1214,6 +1233,7 @@ class EncDecEvaluator(Evaluator):
             correct_functions=correct_functions,
             constrained=constrained,
             knnmt_paths=knnmt_paths,
+            knnmt_restricted=knnmt_restricted
         )
 
         out_paths = []

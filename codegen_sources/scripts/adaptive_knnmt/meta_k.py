@@ -54,7 +54,7 @@ class MetaK(pl.LightningModule):
         distinct_neighbors = torch.FloatTensor(distinct_neighbors).to(self.device)
 
         input = torch.cat((distances, distinct_neighbors), dim=-1) # [B, 2 * K]
-        k_prob = self.sequential(input) # [B, 1 + R_K] -> [B, (1 - lamda) + R_K] -> R_K indicates probabilities for k = [1 2 4 8 16 32]
+        k_prob = self.sequential(input) # [B, 1 + R_K] -> [B, (1 - lambda) + R_K] -> R_K indicates probabilities for k = [1 2 4 8 16 32]
 
         knn_lambda = 1. - k_prob[:, :1]  # [B, 1]
         k_soft_prob = k_prob[:, 1:] # [B, R_K]
