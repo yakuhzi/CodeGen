@@ -36,7 +36,7 @@ class KNNMT:
         values = [[datastore_values[index] for index in k] for k in knns]
 
         if not with_inputs:
-            return values, distances
+            return values, distances, [[None for _ in values]]
 
         datastore_inputs = self._load_inputs(language_pair)
         inputs = [[datastore_inputs[index] for index in k] for k in knns]
