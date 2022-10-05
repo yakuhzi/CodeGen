@@ -48,7 +48,7 @@ class MetaK(pl.LightningModule):
         nn.init.xavier_normal_(self.sequential[0].weight[:, :max_k], gain=0.01)
         nn.init.xavier_normal_(self.sequential[0].weight[:, max_k:], gain=0.1)
 
-    def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor. torch.Tensor]:
+    def forward(self, features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # Get input features
         knns, distances, _ = self.knnmt.get_k_nearest_neighbors(features, self.hparams.language_pair, k=self.hparams.max_k)
         distinct_neighbors = [[len(set(indices[:i])) for i in range(1, self.hparams.max_k + 1)] for indices in knns]

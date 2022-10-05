@@ -1,4 +1,5 @@
 import re
+import os
 from typing import Tuple
 
 from tree_sitter import Language, Parser, TreeCursor
@@ -19,9 +20,22 @@ def fix_code(f_fill: str, lang: str, errors: str) -> str:
     # Convert function string to bytes
     code = bytes(f_fill, "utf8")
 
+    library_path = "codegen_sources/scripts/corrections/build/library.so"
+
+    # Build library
+    if not os.path.exists(library_path):
+        Language.build_library(
+            library_path,
+            [
+                'tree-sitter/tree-sitter-cpp',
+                'tree-sitter/tree-sitter-java',
+                'tree-sitter/tree-sitter-python'
+            ]
+        )
+
     # Define AST parser
     parser = Parser()
-    parser.set_language(Language('codegen_sources/scripts/corrections/build/library.so', lang))
+    parser.set_language(Language(library_path, lang))
 
     # Obtain AST tree and cursor
     tree = parser.parse(code)
