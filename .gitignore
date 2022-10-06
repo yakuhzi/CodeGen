@@ -216,7 +216,7 @@ cython_debug/
 *.pkl
 *.pth.*
 
-out/
+out/*
 dump/
 apex/
 dataset/
@@ -225,3 +225,10 @@ codegen_sources/model/tools/fastBPE/
 javafx-sdk-11/
 googletest-release-1.8.0
 data/test_dataset/LICENSE
+
+!out/adaptive_knnmt/checkpoints/cpp_java/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/602852/best-epoch=59.ckpt
+!out/adaptive_knnmt/checkpoints/cpp_python/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/386692/best-epoch=96.ckpt
+!out/adaptive_knnmt/checkpoints/java_cpp/BS32_KT10_TT5_MK32_TK32_HS64_LR1e-05_B0.9-0.98/684418/best-epoch=87.ckpt
+!out/adaptive_knnmt/checkpoints/java_python/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/559204/best-epoch=81.ckpt
+!out/adaptive_knnmt/checkpoints/python_cpp/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/637986/best-epoch=85.ckpt
+!out/adaptive_knnmt/checkpoints/python_java/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/184136/best-epoch=70.ckpt

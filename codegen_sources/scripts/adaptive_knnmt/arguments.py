@@ -77,7 +77,7 @@ def parse_arguments() -> Namespace:
     parser.add_argument(
         "--knn-temperature",
         dest="knn_temperature",
-        help="KNN distance temperature",
+        help="Softmax temperature applied on kNN-MT distances",
         type=int,
         default=10
     )
@@ -85,7 +85,7 @@ def parse_arguments() -> Namespace:
     parser.add_argument(
         "--tc-temperature",
         dest="tc_temperature",
-        help="TransCoder distance temperature",
+        help="Softmax temperature applied on TransCoder scores",
         type=int,
         default=3
     )

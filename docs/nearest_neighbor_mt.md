@@ -20,7 +20,16 @@ To train the adaptive kNN-MT model for a language pair, run the following script
 codegen_sources/scripts/adaptive_knnmt/train/train_{src_language}_{tgt_language}.sh
 ```
 
-The default arguments and hyperparameters are specified [here](`../codegen_sources/scripts/adaptive_knnmt/arguments.py`).
+The arguments and hyperparameters are specified [here](../codegen_sources/scripts/adaptive_knnmt/arguments.py):
+
+- `learning_rate`: Initial learning rate
+- `adam_betas`: Beta 1 and 2 of ADAM optimizer
+- `hidden_size`: Hidden size of FFN layer
+- `batch_size`: Batch size of the data loader
+- `max_k`: Maximum number of neighbors to retrieve from the datastore
+- `tc_k`: Number of scores to consider from the TransCoder models
+- `knn_temperature`: Softmax temperature applied on kNN-MT distances
+- `tc_temperature`: Softmax temperature applied on TransCoder scores
 
 ## Experiments
 To run an experiment for a specific language pair, replace the respective placeholders and run the command.
@@ -28,12 +37,12 @@ To run an experiment for a specific language pair, replace the respective placeh
 ### Vanilla Nearest Neighbor Translation
 For the vanilla kNN-MT experiments, following arguments can be provided by modifying the `.sh` scripts:
 
-1. `knnmt_dir`: Path to the directory containing the kNN-MT files (datastore and Faiss index)
-2. `knnmt_temperature`: Temperature applied to the softmax over the kNN-MT predictions
-3. `knnmt_tc_temperature`: Temperature applied to the softmax over the TC predictions when using kNN-MT
-4. `knnmt_lambda`: Interpolation hyperparameter for weighting the kNN-MT and TC predictions
-5. `knnmt_k`: Number of neighbors to retrieve from the kNN-MT datastore
-6. `knnmt_restricted`: If the kNN-MT datastore should only be queried for functions that do not compile in the first place
+- `knnmt_dir`: Path to the directory containing the kNN-MT files (datastore and Faiss index)
+- `knnmt_temperature`: Temperature applied to the softmax over the kNN-MT predictions
+- `knnmt_tc_temperature`: Temperature applied to the softmax over the TC predictions when using kNN-MT
+- `knnmt_lambda`: Interpolation hyperparameter for weighting the kNN-MT and TC predictions
+- `knnmt_k`: Number of neighbors to retrieve from the kNN-MT datastore
+- `knnmt_restricted`: If the kNN-MT datastore should only be queried for functions that do not compile in the first place
 
 
 #### Results With Datastore Created From Parallel Corpus
@@ -58,9 +67,9 @@ codegen_sources/scripts/knnmt/eval_mixed/eval_{src_language}_{tgt_language}.sh
 ### Adaptive Nearest Neighbor Translation
 For the adaptive kNN-MT experiments, following arguments can be provided by modifying the `.sh` scripts:
 
-1. `knnmt_dir`: Path to the directory containing the kNN-MT files (datastore and Faiss index)
-2. `meta_k_checkpoint`: Path to the checkpoint of the trained Meta-k network
-3. `knnmt_restricted`: If the kNN-MT datastore should only be queried for functions that do not compile in the first place
+- `knnmt_dir`: Path to the directory containing the kNN-MT files (datastore and Faiss index)
+- `meta_k_checkpoint`: Path to the checkpoint of the trained Meta-k network
+- `knnmt_restricted`: If the kNN-MT datastore should only be queried for functions that do not compile in the first place
 
 The other parameters are already specified at training time (see [here](#train-adaptive-knn-mt-model)).
 #### Results With Datastore Created From Parallel Corpus
@@ -103,7 +112,15 @@ Make sure you provided path to the extended kNN-MT datastore in the `.sh` file.
 Beam search is used to generate 10 hypotheses, selecting the translation with the highest probability in the end.
 
 ### Vanilla kNN-MT Results
-Results of the vanilla kNN-MT approach by combining the predictions of the kNN-MT datastores with the predictions of TransCoder-ST for all functions.
+Results of the vanilla kNN-MT approach by combining the predictions of the kNN-MT datastores with the predictions of TransCoder-ST for all functions  (`knnmt_restricted` is set to false).
+
+Hyperparameters used for the vanilla kNN-MT experiments (defined [here](../codegen_sources/model/train.py)):
+
+- `knnmt_temperature`: 10
+- `knnmt_tc_temperature`: 5
+- `knnmt_lambda`: 0.5
+- `knnmt_k`: 8
+- `knnmt_restricted`: false
 
 | Task           | Original CA | kNN-MT<sub>PC</sub> | kNN-MT<sub>VAL</sub> | kNN-MT<sub>PC+VAL</sub> |
 |----------------|:-----------:|:-------------------:|:--------------------:|:-----------------------:|
@@ -116,7 +133,15 @@ Results of the vanilla kNN-MT approach by combining the predictions of the kNN-M
 |     Overall    |    65,77    |        45,73        |         29,56        |          48,42          |
 
 ### kNN-MT Results Only
-Results of using only the kNN-MT datastore predictions for translation and completely ignoring TransCoder-ST ($\lambda = 1$).
+Results of using only the kNN-MT datastore predictions for translation and completely ignoring TransCoder-ST (`knnmt_lambda` is set to 1 and `knnmt_restricted` is set to false).
+
+Hyperparameters used for the experiments with only the kNN-MT datastores (defined [here](../codegen_sources/model/train.py)):
+
+- `knnmt_temperature`: 10
+- `knnmt_tc_temperature`: 5
+- `knnmt_lambda`: 1
+- `knnmt_k`: 8
+- `knnmt_restricted`: false
 
 | Task           | Original CA | kNN-MT<sub>PC</sub> | kNN-MT<sub>VAL</sub> | kNN-MT<sub>PC+VAL</sub> |
 |----------------|:-----------:|:-------------------:|:--------------------:|:-----------------------:|
@@ -129,7 +154,16 @@ Results of using only the kNN-MT datastore predictions for translation and compl
 |     Overall    |    65,77    |        43,67        |         26,83        |          44,77          |
 
 ### Vanilla kNN-MT Results (Restricted)
-Results of the vanilla kNN-MT approach, but restricting it in a way that the datastores are only queried in cases where the generated functions of TransCoder-ST do not compile in the first place.
+Results of the vanilla kNN-MT approach, but restricting it in a way that the datastores are only queried in cases where the generated functions of TransCoder-ST do not compile in the first place (`knnmt_restricted` is set to true).
+
+Hyperparameters used for the restricted vanilla kNN-MT experiments (defined [here](../codegen_sources/model/train.py)):
+
+- `knnmt_temperature`: 10
+- `knnmt_tc_temperature`: 5
+- `knnmt_lambda`: 0.5
+- `knnmt_k`: 8
+- `knnmt_restricted`: true
+
 
 | Task           | Original CA | kNN-MT<sub>PC</sub> | Fixed | kNN-MT<sub>VAL</sub> | Fixed | kNN-MT<sub>PC+VAL</sub> | Fixed |
 |----------------|:-----------:|:-------------------:|:-----:|:--------------------:|:-----:|:-----------------------:|:-----:|
@@ -142,7 +176,30 @@ Results of the vanilla kNN-MT approach, but restricting it in a way that the dat
 |     Overall    |    65,77    |        66,41        |   18  |         66,62        |   24  |          67,50          |   49  |
 
 ### Adaptive kNN-MT Results (Restricted)
-Results of the adaptive kNN-MT approach, but restricting it in a way that the datastores are only queried in cases where the generated functions of TransCoder-ST do not compile in the first place.
+Results of the adaptive kNN-MT approach, but restricting it in a way that the datastores are only queried in cases where the generated functions of TransCoder-ST do not compile in the first place (`knnmt_restricted` is set to true).
+
+Hyperparameters set at evaluation time (defined [here](../codegen_sources/model/train.py)):
+
+- `knnmt_restricted`: true
+
+Hyperparameters set at training time (defined [here](../codegen_sources/scripts/adaptive_knnmt/arguments.py)):
+
+- `learning_rate`: 1e-05
+- `adam_betas`: 0.9, 0.98
+- `hidden_size`: 32
+- `batch_size`: 32
+- `max_k`: 32
+- `tc_k`: 32
+- `knn_temperature`: 10
+- `tc_temperature`: 3 (except for Java to C++ where it is set to 5)
+
+Checkpoints used:
+- `C++ to Java`: [BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/602852/best-epoch=59.ckpt](../out/adaptive_knnmt/checkpoints/cpp_java/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/602852/best-epoch=59.ckpt)
+- `C++ to Python`: [BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/386692/best-epoch=96.ckpt](../out/adaptive_knnmt/checkpoints/cpp_python/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/386692/best-epoch=96.ckpt)
+- `Java to C++`: [BS32_KT10_TT5_MK32_TK32_HS64_LR1e-05_B0.9-0.98/684418/best-epoch=87.ckpt](../out/adaptive_knnmt/checkpoints/java_cpp/BS32_KT10_TT5_MK32_TK32_HS64_LR1e-05_B0.9-0.98/684418/best-epoch=87.ckpt)
+- `Java to Python`: [BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/559204/best-epoch=81.ckpt](../out/adaptive_knnmt/checkpoints/java_python/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/559204/best-epoch=81.ckpt)
+- `Python to C++`: [BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/637986/best-epoch=85.ckpt](../out/adaptive_knnmt/checkpoints/python_cpp/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/637986/best-epoch=85.ckpt)
+- `Python to Java`: [BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/184136/best-epoch=70.ckpt](../out/adaptive_knnmt/checkpoints/python_java/BS32_KT10_TT3_MK32_TK32_HS32_LR1e-05_B0.9-0.98/184136/best-epoch=70.ckpt)
 
 | Task           | Original CA | kNN-MT<sub>PC</sub> | Fixed | kNN-MT<sub>VAL</sub> | Fixed | kNN-MT<sub>PC+VAL</sub> | Fixed |
 |----------------|:-----------:|:-------------------:|:-----:|:--------------------:|:-----:|:-----------------------:|:-----:|
