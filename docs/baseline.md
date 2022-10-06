@@ -13,7 +13,7 @@ codegen_sources/scripts/transcoder_st/eval/eval_{src_language}_{tgt_language}.sh
 Beam search is used to generate 10 hypotheses, selecting the translation with the highest probability in the end.
 
 |      Task      |   CA  | Evaluated | Success | Errors |
-|:--------------:|:-----:|:---------:|:-------:|:------:|
+|----------------|:-----:|:---------:|:-------:|:------:|
 |   C++ to Java  | 67,57 |    481    |   325   |   156  |
 |  C++ to Python | 61,12 |    463    |   283   |   180  |
 |   Java to C++  | 84,33 |    466    |   393   |   73   |

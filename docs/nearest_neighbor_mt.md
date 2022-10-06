@@ -98,3 +98,58 @@ codegen_sources/scripts/knnmt/eval_mixed/eval_{src_language}_{tgt_language}.sh
 ```
 
 Make sure you provided path to the extended kNN-MT datastore in the `.sh` file.
+
+## Results
+Beam search is used to generate 10 hypotheses, selecting the translation with the highest probability in the end.
+
+### Vanilla kNN-MT Results
+Results of the vanilla kNN-MT approach by combining the predictions of the kNN-MT datastores with the predictions of TransCoder-ST for all functions.
+
+| Task           | Original CA | kNN-MT<sub>PC</sub> | kNN-MT<sub>VAL</sub> | kNN-MT<sub>PC+VAL</sub> |
+|----------------|:-----------:|:-------------------:|:--------------------:|:-----------------------:|
+|   C++ to Java  |    67,57    |        55,09        |         39,09        |          58,42          |
+|  C++ to Python |    61,12    |        36,72        |         27,86        |          44,06          |
+|   Java to C++  |    84,33    |        65,88        |         39,49        |          65,02          |
+| Java to Python |    68,90    |        49,03        |         29,16        |          55,29          |
+|  Python to C++ |    54,51    |        28,76        |         19,74        |          31,12          |
+| Python to Java |    58,21    |        38,88        |         22,04        |          36,59          |
+|     Overall    |    65,77    |        45,73        |         29,56        |          48,42          |
+
+### kNN-MT Results Only
+Results of using only the kNN-MT datastore predictions for translation and completely ignoring TransCoder-ST ($\lambda = 1$).
+
+| Task           | Original CA | kNN-MT<sub>PC</sub> | kNN-MT<sub>VAL</sub> | kNN-MT<sub>PC+VAL</sub> |
+|----------------|:-----------:|:-------------------:|:--------------------:|:-----------------------:|
+|   C++ to Java  |    67,57    |        53,01        |         36,17        |          53,43          |
+|  C++ to Python |    61,12    |        34,34        |         23,33        |          40,60          |
+|   Java to C++  |    84,33    |        64,16        |         37,98        |          60,30          |
+| Java to Python |    68,90    |        47,52        |         26,78        |          53,13          |
+|  Python to C++ |    54,51    |        26,61        |         17,17        |          27,25          |
+| Python to Java |    58,21    |        36,38        |         19,54        |          33,89          |
+|     Overall    |    65,77    |        43,67        |         26,83        |          44,77          |
+
+### Vanilla kNN-MT Results (Restricted)
+Results of the vanilla kNN-MT approach, but restricting it in a way that the datastores are only queried in cases where the generated functions of TransCoder-ST do not compile in the first place.
+
+| Task           | Original CA | kNN-MT<sub>PC</sub> | Fixed | kNN-MT<sub>VAL</sub> | Fixed | kNN-MT<sub>PC+VAL</sub> | Fixed |
+|----------------|:-----------:|:-------------------:|:-----:|:--------------------:|:-----:|:-----------------------:|:-----:|
+|   C++ to Java  |    67,57    |        68,82        |   6   |         69,65        |   10  |          72,14          |   22  |
+|  C++ to Python |    61,12    |        61,56        |   2   |         61,77        |   3   |          61,56          |   2   |
+|   Java to C++  |    84,33    |        85,19        |   4   |         84,98        |   3   |          85,62          |   6   |
+| Java to Python |    68,90    |        68,90        |   0   |         68,90        |   0   |          69,11          |   1   |
+|  Python to C++ |    54,51    |        55,58        |   5   |         55,36        |   4   |          57,08          |   12  |
+| Python to Java |    58,21    |        58,42        |   1   |         59,04        |   4   |          59,46          |   6   |
+|     Overall    |    65,77    |        66,41        |   18  |         66,62        |   24  |          67,50          |   49  |
+
+### Adaptive kNN-MT Results (Restricted)
+Results of the adaptive kNN-MT approach, but restricting it in a way that the datastores are only queried in cases where the generated functions of TransCoder-ST do not compile in the first place.
+
+| Task           | Original CA | kNN-MT<sub>PC</sub> | Fixed | kNN-MT<sub>VAL</sub> | Fixed | kNN-MT<sub>PC+VAL</sub> | Fixed |
+|----------------|:-----------:|:-------------------:|:-----:|:--------------------:|:-----:|:-----------------------:|:-----:|
+|   C++ to Java  |    67,57    |        69,02        |   7   |         71,93        |   21  |          73,39          |   28  |
+|  C++ to Python |    61,12    |        61,77        |   3   |         61,56        |   2   |          61,99          |   4   |
+|   Java to C++  |    84,33    |        85,19        |   4   |         85,19        |   4   |          85,84          |   7   |
+| Java to Python |    68,90    |        68,90        |   0   |         69,11        |   1   |          69,11          |   1   |
+|  Python to C++ |    54,51    |        56,44        |   9   |         56,44        |   9   |          57,51          |   14  |
+| Python to Java |    58,21    |        58,63        |   2   |         59,67        |   7   |          60,08          |   9   |
+|     Overall    |    65,77    |        66,66        |   25  |         67,32        |   44  |          67,99          |   63  |
