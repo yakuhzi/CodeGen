@@ -31,8 +31,11 @@ The script will also download the pretrained TransCoder and TransCoder-ST models
 - [Nearest Neighbor Machine Translation](docs/nearest_neighbor_mt.md)
 - [Combined Results](docs/combined_results.md)
 
+The results of all experiments are also shown in detail [in this Excel](out/results/Results%20Improvements.xlsx).
+
 ## Other Work
 
+- [Black-Box Analysis](docs/black_box_analysis.md)
 - [Attention Weight Analysis](docs/attention_weights.md)
 - [TCRules](docs/tc_rules.md)
 - [Snippets](docs/snippets.md)

@@ -28,6 +28,8 @@ codegen_sources/scripts/combined/corrections_knnmt/eval_{src_language}_{tgt_lang
 ## Results
 Beam search is used to generate 10 hypotheses. For the experiments including constrained beam search, the first syntactically correct function is selected. For the other experiments, the translation with the highest probability is selected in the end.
 
+The hyperparameters and checkpoints for the adaptive kNN-MT (A-kNN-MT) are the same as in the individual experiments (see [here](./nearest_neighbor_mt.md)).
+
 | Task           | Original CA | Corrections + Constrained | Fixed | Corrections + A-kNN-MT | Fixed | Constrained + A-kNN-MT | Fixed | Corrections + Constrained + A-kNN-MT | Fixed |
 |----------------|:-----------:|:-------------------------:|:-----:|:----------------------:|:-----:|:----------------------:|:-----:|:------------------------------------:|:-----:|
 |   C++ to Java  |    67,57    |           77,96           |   50  |          77,55         |   48  |          75,26         |   37  |                 79,42                |   57  |
