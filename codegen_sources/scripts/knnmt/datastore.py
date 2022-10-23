@@ -1,3 +1,4 @@
+from typing import Optional
 from tqdm import tqdm
 
 from ...model.translate import Translator
@@ -84,7 +85,11 @@ def add_to_datastore(knnmt: KNNMT, parallel_functions, is_validation: bool=False
         knnmt.save_datastore(language_pair)
 
 
-def train_datastore(knnmt: KNNMT):
+def train_datastore(knnmt: KNNMT, language_pair: Optional[str]):
+    if language_pair is not None:
+        knnmt.train_datastore(language_pair)
+        return
+
     for language_pair in LANGUAGE_PAIRS:
         knnmt.train_datastore(language_pair)
 
