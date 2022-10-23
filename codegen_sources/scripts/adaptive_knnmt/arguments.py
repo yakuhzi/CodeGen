@@ -23,7 +23,7 @@ def parse_arguments() -> Namespace:
 
     parser.add_argument(
         "-l",
-        "--learning_rate",
+        "--learning-rate",
         dest="learning_rate",
         help="Initial learning rate",
         type=float,
@@ -41,7 +41,7 @@ def parse_arguments() -> Namespace:
 
     parser.add_argument(
         "-b",
-        "--batch_size",
+        "--batch-size",
         dest="batch_size",
         help="Batch size of the data loader",
         type=int,
@@ -58,7 +58,7 @@ def parse_arguments() -> Namespace:
     )
 
     parser.add_argument(
-        "--tc_k",
+        "--tc-k",
         dest="tc_k",
         help="Number of scores to consider from the TransCoder models",
         type=int,
