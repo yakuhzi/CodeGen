@@ -31,6 +31,16 @@ The arguments and hyperparameters are specified [here](../codegen_sources/script
 - `knn_temperature`: Softmax temperature applied on kNN-MT distances
 - `tc_temperature`: Softmax temperature applied on TransCoder scores
 
+## One-Click Demo
+A one click demo for the generation of translations using the kNN-MT datastores only is available in a jupyter notebook [here](../codegen_sources/scripts/knnmt/one_click_demo.ipynb).
+
+Make sure you used the created conda environment `c2c-translation`. To add it as a kernel for your notebook, run the following commands:
+
+```sh
+conda install -c anaconda ipykernel
+python -m ipykernel install --user --name=c2c-translation
+```
+
 ## Experiments
 To run an experiment for a specific language pair, replace the respective placeholders and run the command.
 
